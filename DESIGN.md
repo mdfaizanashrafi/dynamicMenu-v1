@@ -254,3 +254,85 @@ Do not copy:
 - Source code
 
 Adapt the useful design principles to DynamicMenu.
+
+## DynamicMenu — Color Palette
+
+### Primary Colors
+
+| Color                 | HEX       | RGB             | Usage                        |
+| --------------------- | --------- | --------------- | ---------------------------- |
+| 🟠 **Primary Orange** | `#FF6A00` | `255, 106, 0`   | Main brand, CTA, highlights  |
+| 🟤 **Bowl Brown**     | `#4E2E1B` | `78, 46, 27`    | Bowl, secondary branding     |
+| 🟢 **Leaf Green**     | `#7CB342` | `124, 179, 66`  | Leaf, success, active states |
+| 🟡 **Light Cream**    | `#FFF7EE` | `255, 247, 238` | Main background              |
+
+### Secondary Colors
+
+| Color              | HEX       | RGB             | Usage                   |
+| ------------------ | --------- | --------------- | ----------------------- |
+| 🔴 **Accent Red**  | `#F44300` | `244, 67, 0`    | Hover, alerts, emphasis |
+| 🟡 **Warm Yellow** | `#FFB300` | `255, 179, 0`   | Secondary highlights    |
+| ⚫ **Text Dark**    | `#1A1A1A` | `26, 26, 26`    | Primary text            |
+| 🔘 **Text Gray**   | `#6B7280` | `107, 114, 128` | Secondary text          |
+
+### Supporting Colors
+
+| Color           | HEX       | Usage                 |
+| --------------- | --------- | --------------------- |
+| **Soft Green**  | `#E8F5E9` | Success backgrounds   |
+| **Soft Orange** | `#FFEDD6` | Highlight backgrounds |
+| **Neutral**     | `#F5F5F5` | Cards, surfaces       |
+| **White**       | `#FFFFFF` | Clean backgrounds     |
+
+### Gradients
+
+**Primary Gradient**
+
+```css
+linear-gradient(135deg, #FF6A00 0%, #F44300 100%)
+```
+
+**Bowl Gradient**
+
+```css
+linear-gradient(135deg, #6B3A1E 0%, #2E1A0F 100%)
+```
+
+### Dark Theme
+
+```text
+Primary Orange   #FF6A00
+Bowl Brown       #4E2E1B
+Leaf Green       #7CB342
+Surface Dark     #121212
+Text Primary     #FFFFFF
+Text Secondary   #BDBDBD
+```
+
+### Light Theme
+
+```text
+Primary Orange   #FF6A00
+Bowl Brown       #4E2E1B
+Leaf Green       #7CB342
+Background       #FFF7EE
+Surface          #FFFFFF
+Text Primary     #1A1A1A
+Text Secondary   #6B7280
+```
+
+### Brand Core
+
+```text
+#FF6A00  — Primary Orange
+#4E2E1B  — Bowl Brown
+#7CB342  — Leaf Green
+#FFF7EE  — Light Cream
+#1A1A1A  — Text Dark
+#6B7280  — Text Gray
+#F44300  — Accent Red
+#FFB300  — Warm Yellow
+#FFFFFF  — White
+```
+
+**Core identity:** 🟠 Orange + 🟤 Brown + 🟢 Green + 🟡 Cream.

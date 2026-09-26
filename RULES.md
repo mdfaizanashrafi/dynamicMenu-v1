@@ -2,7 +2,7 @@
 
 ## 1. General
 
-* Read `Memory.md` **FIRST**.
+* Read `MEMORY.md` **FIRST**.
 * Inspect existing code before modifying it.
 * Understand existing architecture and patterns before introducing changes.
 * Reuse existing patterns and components.
