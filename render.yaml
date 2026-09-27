@@ -1,0 +1,22 @@
+# Render deployment for the DynamicMenu API.
+# Create the service on Render, then attach this repo and set the env vars
+# from .env.example (DATABASE_URL, CLERK_SECRET_KEY, SENTRY_DSN, ...).
+services:
+  - type: web
+    name: dynamicmenu-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm ci && npm run db:generate && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PORT
+        value: 4000
+      - key: DATABASE_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

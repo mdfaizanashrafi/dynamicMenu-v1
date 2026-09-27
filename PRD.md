@@ -23,22 +23,22 @@
 
 ## 5. Features
 
-### Feature 1: [Name]
+### Feature 1: [Customer Menu]
 **Description:**  
-What this feature does.
+Customer visits the restaurant, there he sees the QR on the table, he scans it, and interactive menu appears which multiple sections like, restaurant choice, must try, people choice, etc, along with add ons, offer details, festive theme.
 
 **Requirements:**
-- Requirement 1
-- Requirement 2
-- Requirement 3
+- Requirement 1: QR Scan -> Theme based Menu Appears.
+- Requirement 2: Menu have multiple sections based on the list created by the owner.
+- Requirement 3: Shows offers.
 
-### Feature 2: [Name]
+### Feature 2: [Restaurant Owner Dashboard]
 **Description:**  
-What this feature does.
+Restaurant owner can signup and create a menu, with complete flexibility, choose from wide range of indian festive menu, with picture upload to make menu theme like picture. Get analytics of the orders, can get the customer details for royalty program. 
 
 **Requirements:**
-- Requirement 1
-- Requirement 2
+- Requirement 1: Dashboard to manage the entire menu.
+- Requirement 2: Royalty program for customer if they order with the same phone number. Also after eating, when restaurant marks order as paid, it will send webhook to the customer to review on google map for visibility.
 
 ## 6. User Flow
 1. User opens the application
@@ -47,49 +47,28 @@ What this feature does.
 4. User performs the main action
 5. User receives the result
 
-## 7. Functional Requirements
-- The system must...
-- The user must be able to...
-- The application should...
 
-## 8. Non-Functional Requirements
+## 7. Non-Functional Requirements
 - Performance
 - Security
 - Reliability
 - Accessibility
 - Scalability
 
-## 9. Technical Requirements
-- Frontend:
-- Backend:
-- Database:
-- Authentication:
-- APIs:
-- Hosting:
+## 8. Technical Requirements
+- Frontend: Vercel
+- Backend: Render
+- Database: Neon
+- Authentication: Clerk
+- Error and Monitoring: Sentry
 
-## 10. Design Requirements
-- UI style:
-- Colors:
-- Typography:
-- Responsive behavior:
-- Mobile requirements:
+## 9. Design Requirements
+- UI style: refer DESIGN.md and /design-references folder
+- Colors: refer DESIGN.md and /design-references folder
+- Typography: refer DESIGN.md and /design-references folder
+- Responsive behavior: refer DESIGN.md and /design-references folder
+- Mobile requirements: refer DESIGN.md and /design-references folder
 
-## 11. Success Metrics
-- Metric 1:
-- Metric 2:
-- Metric 3:
-
-## 12. Out of Scope
-Things explicitly NOT included in this version.
-
-## 13. MVP
-Features required for the first release.
-
-## 14. Future Enhancements
-Features that may be added later.
-
-## 15. Acceptance Criteria
-The product is considered complete when:
-- [ ] Requirement 1 is satisfied
-- [ ] Requirement 2 is satisfied
-- [ ] Requirement 3 is satisfied
+## 10. Success Metrics
+- Metric 1: Goals achieved
+- Metric 2: Features achieved

@@ -1,0 +1,68 @@
+// Prisma schema for DynamicMenu.
+// Phase 1 adds the tenant core: User, Restaurant, RestaurantMembership.
+// Further domain models are added in their own phases.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum RestaurantStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships RestaurantMembership[]
+
+  @@index([clerkId])
+}
+
+model Restaurant {
+  id        String           @id @default(cuid())
+  name      String
+  slug      String           @unique
+  status    RestaurantStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  memberships RestaurantMembership[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+model RestaurantMembership {
+  id           String     @id @default(cuid())
+  userId       String
+  restaurantId String
+  role         Role       @default(STAFF)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+  @@index([restaurantId])
+  @@index([userId, restaurantId])
+}
