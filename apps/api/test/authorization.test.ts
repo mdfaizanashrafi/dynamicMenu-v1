@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { prisma } from "../src/lib/prisma.js";
 import { roleAtLeast, hasPermission } from "../src/utils/roles.js";
+import { createApp } from "../src/app.js";
+import { authHeader, createStubVerifier } from "./helpers.js";
 
 describe("role hierarchy", () => {
   it("orders roles by privilege", () => {
@@ -30,8 +32,6 @@ describe("membership authorization (integration)", () => {
   });
 
   it("blocks cross-tenant reads and writes with 404", async () => {
-    const { createApp } = await import("../src/app.js");
-    const { createStubVerifier, authHeader } = await import("./helpers.js");
     const app = createApp(createStubVerifier());
 
     const owner = await prisma.user.create({
@@ -71,8 +71,6 @@ describe("membership authorization (integration)", () => {
   });
 
   it("enforces role checks with 403", async () => {
-    const { createApp } = await import("../src/app.js");
-    const { createStubVerifier, authHeader } = await import("./helpers.js");
     const app = createApp(createStubVerifier());
 
     const owner = await prisma.user.create({
@@ -122,8 +120,6 @@ describe("membership authorization (integration)", () => {
   });
 
   it("rejects unauthenticated requests with 401", async () => {
-    const { createApp } = await import("../src/app.js");
-    const { createStubVerifier } = await import("./helpers.js");
     const app = createApp(createStubVerifier());
 
     const me = await request(app).get("/api/v1/me");

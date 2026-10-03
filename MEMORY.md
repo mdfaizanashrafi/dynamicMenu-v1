@@ -36,13 +36,13 @@ Restaurant customer.
 
 # 2. Current Project Status
 
-**Current Phase:** Phase 0 — Project Foundation
+**Current Phase:** Phase 2 — Restaurant Onboarding (implemented and verified locally; hosted Clerk account still pending)
 
-**Status:** In Progress (local development setup complete and verified; hosted service accounts pending)
+**Status:** Phase 2 code complete and verified locally (typecheck/lint/test/build + full onboarding smoke test over HTTP). A hosted Clerk application and Neon database are still required to verify the authenticated experience end-to-end in a browser.
 
 **Current Objective:**
 
-Establish the development foundation and verify the project structure before implementing product features.
+Let a new restaurant configure its identity: profile (cuisine, description, contact, address), logo upload, Google Maps review link, basic branding, with visible onboarding progress.
 
 ### Current State
 
@@ -58,6 +58,14 @@ MEMORY
 Development Foundation
     ↓
 Local setup complete & verified
+    ↓
+Phase 1: Auth & Multi-Tenancy
+    ↓
+Implemented & verified locally
+    ↓
+Phase 2: Restaurant Onboarding
+    ↓
+Implemented & verified locally
 (Hosted services pending credentials)
 ```
 
@@ -115,11 +123,68 @@ Customer Review Flow
 
 # 4. Current Development Phase
 
-## Phase 0 — Project Foundation
+## Phase 2 — Restaurant Onboarding
 
 ### Objective
 
-Establish the technical foundation before implementing the product.
+Allow a newly registered restaurant to configure its basic identity.
+
+### Current Completion
+
+```text
+Restaurant profile fields    [x] Done (migration 20261003132614_phase2_restaurant_profile)
+Profile edit API             [x] Done (PATCH accepts all profile fields, zod-validated)
+Profile detail API           [x] Done (GET /:id with full profile)
+Onboarding progress          [x] Done (derived 6-step checklist in detail response)
+Logo upload                  [x] Done (POST /:id/logo, multipart, JPEG/PNG/WebP ≤ 2 MB, local-disk storage)
+Dashboard settings page      [x] Done (/dashboard/settings, section anchors, ADMIN+ edit)
+Onboarding dashboard UI      [x] Done (progress card on overview, links back to settings)
+Branding                     [x] Done (primary color field + color picker)
+```
+
+### Verification (2026-10-03, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (27 tests), `npm run build` all pass.
+New API tests (`apps/api/test/onboarding.test.ts`): profile PATCH + progress reflection, validation errors, logo upload persistence, invalid file type/size/missing rejections, STAFF read-only vs ADMIN edit, outsider → 404.
+Web tests: OnboardingCard (count, progressbar, deep links, 100% state), AuthGuard.
+HTTP smoke test with dev-auth bypass: create restaurant → patch profile → upload logo → onboarding 6/6 → uploaded file byte-identical and served at its URL.
+
+---
+
+## Phase 1 — Authentication & Multi-Tenancy (completed)
+
+### Objective
+
+Allow restaurant owners to create accounts and securely operate independent restaurant workspaces.
+
+### Current Completion
+
+```text
+Clerk SDK integration       [x] Done (web provider + sign-in/up pages; backend JWT verification in lib/clerk.ts)
+Application user record     [x] Done (User synced from Clerk identity on first request)
+Restaurant entity           [x] Done (create/list/update, slug uniqueness)
+Restaurant membership       [x] Done (OWNER membership created atomically with restaurant)
+Roles/permissions           [x] Done (OWNER/ADMIN/MANAGER/STAFF hierarchy, backend-enforced)
+Tenant middleware           [x] Done (requireMembership; non-members get 404, wrong role gets 403)
+Protected APIs              [x] Done (/me, /restaurants/* behind requireAuth)
+Protected dashboard routes  [x] Done (AuthGuard gates /dashboard; /sign-in /sign-up public)
+Tenant isolation tests      [x] Done (cross-tenant read/write blocked — integration-tested against real Postgres)
+```
+
+### Verification (2026-10-03, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (17 tests), `npm run build` all pass.
+API integration tests (`apps/api/test/authorization.test.ts`, `phase1-flow.test.ts`) run migrations against a real local PostgreSQL and verify: cross-tenant reads/writes → 404, insufficient role → 403, missing credentials → 401, user sync, restaurant creation with OWNER membership, and tenant-scoped listing.
+Web tests include AuthGuard behavior (redirect to /sign-in when signed out, loading state, not-configured state).
+Built API smoke test: `/api/v1/health` → 200; unauthenticated `/me` and `/restaurants` → 401.
+
+### Not Yet Verified
+
+Real Clerk sign-in (requires a Clerk application + keys). Token verification code path is tested with a stub verifier; `ENABLE_DEV_AUTH` header bypass exists for local development without keys.
+
+---
+
+## Phase 0 — Project Foundation (completed)
 
 ### Planned Work
 
@@ -160,13 +225,25 @@ CI/CD                   [x] GitHub Actions workflow created; runs on push to Git
 [x] Architecture implementation — npm-workspaces monorepo: apps/web, apps/api, prisma/
 [x] Frontend foundation — verified (typecheck, lint, test, build, vite preview smoke test)
 [x] Backend foundation — verified (typecheck, lint, test, build, health endpoint smoke test)
-[ ] Database setup — Prisma configured; awaiting Neon DATABASE_URL
-[ ] Clerk authentication — SDK wired; awaiting Clerk account keys
+[x] Phase 1 tenant core — Prisma models (User, Restaurant, RestaurantMembership, Role enum) + migration 20260927181123_phase1_tenant_core
+[x] Phase 1 Clerk auth — backend JWT verification + user sync; web sign-in/up pages; token path tested with stub verifier
+[x] Phase 1 roles & tenant isolation — requireMembership middleware, role hierarchy, 404/403/401 enforcement, integration-tested against real Postgres
+[x] Phase 1 protected dashboard — AuthGuard gates /dashboard; /sign-in /sign-up routes; web tests for guard behavior
+[x] Phase 2 restaurant profile — 13 new Restaurant fields + migration 20261003132614_phase2_restaurant_profile (dev + test DBs migrated)
+[x] Phase 2 onboarding APIs — GET /:id detail with derived 6-step progress; PATCH profile; POST /:id/logo (multipart, type/size validated)
+[x] Phase 2 dashboard UI — /dashboard/settings (profile form, logo uploader, branding color), onboarding progress card on overview
+[ ] Database setup — Prisma configured; local dev + test Postgres verified; awaiting Neon DATABASE_URL for hosted environments
+[ ] Clerk authentication — code complete; awaiting Clerk application keys to verify real sign-in
 [ ] Sentry monitoring — SDK wired; awaiting DSN
 [ ] Vercel deployment — vercel.json ready; not provisioned
 [ ] Render deployment — render.yaml ready; not provisioned
-[ ] CI/CD — workflow file created; not yet run on GitHub
+[ ] CI/CD — workflow updated with Postgres service for tests; not yet run on GitHub
 ```
+
+Verification evidence (2026-10-03, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (27 tests), `npm run build` all pass.
+API integration tests verify tenant isolation against a real local PostgreSQL.
+HTTP smoke test: create restaurant → patch profile → logo upload → onboarding 6/6 → uploaded file served byte-identical.
 
 Verification evidence (2026-09-27, local):
 `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build` all pass.
@@ -197,19 +274,19 @@ Expected Output:
 
 ## Immediate
 
-1. Create Neon database → add `DATABASE_URL` to `apps/api/.env` → run `npm run db:migrate -w @dynamicmenu/api` to verify connectivity.
-2. Create Clerk application → set `VITE_CLERK_PUBLISHABLE_KEY` (web) and `CLERK_SECRET_KEY` (api).
+1. Create Neon database → point `DATABASE_URL` in `apps/api/.env` at it → run `npm run db:migrate -w @dynamicmenu/api`.
+2. Create Clerk application → set `VITE_CLERK_PUBLISHABLE_KEY` (apps/web/.env) and `CLERK_SECRET_KEY` (apps/api/.env), then verify real sign-up → sign-in → dashboard → settings end-to-end in a browser.
 3. Create Sentry projects (web + api) → set `VITE_SENTRY_DSN` and `SENTRY_DSN`, then send a test error.
-4. Commit the foundation and push to GitHub; confirm the CI workflow passes.
-5. Provision Vercel (root `vercel.json`) and Render (`render.yaml`) projects with env vars; verify health check.
-6. Mark Phase 0 complete and begin Phase 1 — Authentication & Multi-Tenancy.
+4. Commit Phase 2 and push to GitHub; confirm the CI workflow passes (it spins up a Postgres service for tests).
+5. Provision Vercel (root `vercel.json`) and Render (`render.yaml`) projects with env vars; verify health check. Before launch: swap local-disk image storage for an object-storage provider (S3/Cloudinary/R2).
+6. Begin Phase 3 — Menu Management (menus, sections, items, prices, images, availability, variants/add-ons, draft/publish).
 
 ## After Foundation
 
 Begin:
 
 ```text
-Phase 1 — Authentication & Multi-Tenancy
+Phase 3 — Menu Management
 ```
 
 ---
@@ -496,7 +573,23 @@ Do not duplicate large sections of these documents in `MEMORY.md`.
 
 # 13. Known Issues
 
-None recorded.
+```text
+Issue: npm audit reports 3 high-severity vulnerabilities (deepmerge-ts stack exhaustion, via @prisma/config in the prisma CLI).
+Detected: 2026-10-03 (during Phase 2 dependency install).
+Impact: Local tooling only — the vulnerable package is part of the prisma CLI dev dependency chain, not the running API.
+Status: Open.
+Workaround: None needed locally.
+Resolution: Upgrade prisma when a patched 6.x/7.x line is available; do NOT run the suggested breaking downgrade.
+```
+
+```text
+Issue: Vitest 5.0.2 silently ignores the `setupFiles` config in apps/api — setup code never executed (env vars leaked between .env and .env.test, tests once ran against the wrong database).
+Detected: 2026-10-03.
+Impact: Would have kept integration tests pointed at the dev database instead of the test database.
+Status: Mitigated.
+Workaround: .env.test is now loaded in test/global-setup.ts (main thread, before workers spawn); setupFiles removed from vitest.config.ts.
+Resolution: Revisit when upgrading Vitest; verify a canary log line from the setup file runs.
+```
 
 New issues must be recorded here with:
 
@@ -551,6 +644,14 @@ Do not record proposed architecture as an architecture change.
 ---
 
 # 16. Important Technical Notes
+
+## Local Auth Without Clerk Keys
+
+`ENABLE_DEV_AUTH=true` (apps/api/.env, non-production only) makes `requireAuth` trust `x-dev-clerk-id` + `x-dev-email` headers instead of verifying a Clerk JWT. Without it and without `CLERK_SECRET_KEY`, protected endpoints return 401 `AUTH_NOT_CONFIGURED`. Tests inject a stub verifier via `createApp(verifier)` and never use the bypass.
+
+## Test Database
+
+API integration tests read `apps/api/.env.test` (gitignored) for `DATABASE_URL`, apply migrations via `prisma migrate deploy` in `test/global-setup.ts`, and run sequentially (`fileParallelism: false`). CI recreates the same setup with a Postgres service container.
 
 ## Tenant Isolation
 
@@ -667,11 +768,20 @@ Important security requirements:
 
 # 19. Current Database State
 
-**Status:** Prisma configured; no domain models yet
+**Status:** Tenant core implemented and migration-tested; dev/prod database pending
 
-`prisma/schema.prisma` exists at the repo root (PostgreSQL datasource, client generation verified). Domain entities (User, Restaurant, Menu, ...) are intentionally deferred to their own phases. The API health endpoint reports `database: "unconfigured"` until `DATABASE_URL` (Neon) is provided.
+`prisma/schema.prisma` (PostgreSQL) now contains the Phase 1 tenant core:
 
-Planned core entities (none implemented yet):
+```text
+User                     (id, clerkId unique, email unique, name)
+Restaurant               (id, name, slug unique, status: ACTIVE/SUSPENDED/CLOSED)
+RestaurantMembership     (userId + restaurantId unique, role, cascade deletes)
+Role enum                OWNER | ADMIN | MANAGER | STAFF
+```
+
+Migration `20260927181123_phase1_tenant_core` exists under `prisma/migrations/` and is applied by tests via `prisma migrate deploy` (see `apps/api/test/global-setup.ts`, DB URL from gitignored `apps/api/.env.test` pointing at a local Postgres — verified working).
+
+Remaining planned entities (none implemented yet):
 
 ```text
 User
@@ -711,14 +821,19 @@ Do not mark entities as implemented until the actual Prisma schema and database 
 
 # 20. Current API State
 
-**Status:** Foundation implemented
+**Status:** Phase 1 auth & tenant endpoints implemented
 
-Express 5 + TypeScript API exists at `apps/api` with:
-`/api/v1/health` (200 ok / 503 degraded), consistent error envelope per ARCHITECTURE.md §33, zod validation middleware, helmet/cors/rate-limit, pino logging, Sentry error handler (activates with SENTRY_DSN). Domain endpoints (auth, restaurants, menus, orders, ...) are future phases.
+Express 5 + TypeScript API at `apps/api` with the Phase 0 foundation (health, error envelope per ARCHITECTURE.md §33, zod validation, helmet/cors/rate-limit, pino, Sentry handler) plus:
 
 ```text
-/api/v1/
+GET    /api/v1/me                     → current profile (requireAuth)
+GET    /api/v1/restaurants            → caller's memberships only (requireAuth)
+POST   /api/v1/restaurants            → create restaurant + OWNER membership (transaction)
+PATCH  /api/v1/restaurants/:id        → ADMIN+ membership required
+GET    /api/v1/restaurants/:id/members→ ADMIN+ membership required
 ```
+
+Request pipeline per RULES.md §6: `requireAuth` (Clerk JWT verification or injected test verifier) → `syncUser` (upsert local User) → `requireMembership(minimumRole)` (tenant lookup server-side; non-member → 404 `RESTAURANT_NOT_FOUND`, insufficient role → 403). Local-dev bypass: `ENABLE_DEV_AUTH=true` trusts `x-dev-clerk-id` / `x-dev-email` headers (never in production, never with a verifier injected).
 
 Expected domains:
 
@@ -771,7 +886,7 @@ Status: Prisma schema ready; DATABASE_URL not yet provided
 
 ```text
 Provider: Clerk
-Status: @clerk/clerk-react wired into apps/web (ClerkProvider activates with VITE_CLERK_PUBLISHABLE_KEY); Clerk application not yet created
+Status: Backend JWT verification (apps/api/src/lib/clerk.ts) + user sync; web ClerkProvider, sign-in/up pages, AuthGuard on /dashboard — all verified locally with stub/test verifiers; Clerk application not yet created
 ```
 
 ## Monitoring
@@ -785,7 +900,13 @@ Status: @sentry/node and @sentry/react wired (activate with SENTRY_DSN / VITE_SE
 
 # 22. Recent Work
 
-Project documentation has been initialized.
+2026-10-03 — Completed and verified Phase 1 (Authentication & Multi-Tenancy) locally:
+
+* Fixed broken module paths in `apps/api/src/routes/index.ts` (committed Phase 1 code did not compile) and added `apps/api/tsconfig.test.json` + ESLint test-file config from the prior uncommitted work.
+* Web: wired `/sign-in` and `/sign-up` routes and gated `/dashboard` behind `AuthGuard` (previously a no-op stub); fixed Clerk-hook-before-config-check crash in sign-in/up pages; fixed import path in `auth-guard.tsx`.
+* Added `apps/web/src/components/layout/auth-guard.test.tsx` (4 tests: not-configured, loading, redirect when signed out, render when signed in).
+* CI: added a Postgres service to `.github/workflows/ci.yml` and generate `apps/api/.env.test` so `npm run test` can run in GitHub Actions (previously it would fail without a database).
+* Verified: typecheck, lint, 17 tests, build, built-API smoke test, web `vite preview`.
 
 Current documentation set:
 
@@ -795,9 +916,8 @@ ARCHITECTURE.md
 DESIGN.md
 PHASES.md
 MEMORY.md
+RULES.md
 ```
-
-No application implementation should be assumed from the existence of these documents.
 
 ---
 
@@ -876,20 +996,16 @@ Restaurant is the primary tenant boundary.
 The immediate next action is:
 
 ```text
-Inspect repository
+Phase 1 complete locally
         ↓
-Understand existing code
+Obtain hosted credentials (Neon, Clerk, Sentry)
         ↓
-Compare implementation against PRD
+Verify real sign-in + database connectivity
         ↓
-Compare implementation against ARCHITECTURE.md
+Commit, push, confirm CI passes
         ↓
-Verify DESIGN.md and design references
-        ↓
-Begin Phase 0
+Begin Phase 2 — Restaurant Onboarding
 ```
-
-No implementation task should be marked complete before inspection.
 
 ---
 
@@ -897,6 +1013,9 @@ No implementation task should be marked complete before inspection.
 
 ```text
 No blockers recorded.
+```
+
+Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 2 development.
 ```
 
 ---
@@ -916,8 +1035,9 @@ Project memory        → Defined
 Monorepo scaffold      → Implemented & verified (local)
 Frontend foundation    → Implemented & verified (local)
 Backend foundation     → Implemented & verified (local)
-Database (Prisma)      → Configured; awaiting Neon URL
-Authentication (Clerk) → Wired; awaiting Clerk keys
+Phase 1 auth + tenancy → Implemented & verified (local; stub/test verifiers)
+Database (Prisma)      → Tenant core migrated & tested on local Postgres; awaiting Neon URL
+Authentication (Clerk) → Code complete; awaiting Clerk application keys
 Monitoring (Sentry)    → Wired; awaiting DSN
 Deployment             → Config files ready; not provisioned
 Production system      → Not started
@@ -928,7 +1048,7 @@ Production system      → Not started
 # 28. Last Updated
 
 ```text
-2026-09-27 — Phase 0 local foundation implemented and verified (typecheck/lint/test/build + API and web smoke tests). Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render to finish hosted Phase 0 acceptance criteria.
+2026-10-03 — Phase 1 (Authentication & Multi-Tenancy) implemented and verified locally: Clerk token verification + user sync, User/Restaurant/RestaurantMembership schema + migration, role-based tenant isolation (404/403/401), protected APIs, AuthGuard-protected dashboard routes, 17 tests passing (incl. cross-tenant integration tests against real Postgres), CI workflow given a Postgres test service. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
 ```
 
 ---

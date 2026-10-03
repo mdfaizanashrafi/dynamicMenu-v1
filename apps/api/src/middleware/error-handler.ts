@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { MulterError } from "multer";
 import { ZodError } from "zod";
 import { env } from "../config/env.js";
 import { logger } from "../lib/logger.js";
@@ -30,6 +31,20 @@ export function errorHandler(
       error: {
         code: "VALIDATION_ERROR",
         message: "Request validation failed.",
+      },
+    } satisfies ErrorBody);
+    return;
+  }
+
+  if (err instanceof MulterError) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: err.code === "LIMIT_FILE_SIZE" ? "FILE_TOO_LARGE" : "INVALID_FILE",
+        message:
+          err.code === "LIMIT_FILE_SIZE"
+            ? "The file exceeds the 2 MB size limit."
+            : "The uploaded file could not be processed.",
       },
     } satisfies ErrorBody);
     return;

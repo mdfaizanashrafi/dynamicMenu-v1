@@ -3,10 +3,10 @@ import type { RequestHandler } from "express";
 import {
   createRequireAuth,
   type AuthVerifier,
-} from "./modules/auth/auth.middleware.js";
-import { healthRouter } from "./modules/health/health.routes.js";
-import { createRestaurantsRouter } from "./modules/restaurants/restaurants.routes.js";
-import { createMeRouter } from "./modules/users/me.routes.js";
+} from "../modules/auth/auth.middleware.js";
+import { healthRouter } from "../modules/health/health.routes.js";
+import { createRestaurantsRouter } from "../modules/restaurants/restaurants.routes.js";
+import { createMeRouter } from "../modules/users/me.routes.js";
 
 export function createApiRouter(verifier?: AuthVerifier): Router {
   const requireAuth: RequestHandler = createRequireAuth(verifier);

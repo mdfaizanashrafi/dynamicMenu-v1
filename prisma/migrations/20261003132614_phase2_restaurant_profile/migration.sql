@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "Restaurant" ADD COLUMN     "addressLine1" TEXT,
+ADD COLUMN     "addressLine2" TEXT,
+ADD COLUMN     "city" TEXT,
+ADD COLUMN     "country" TEXT,
+ADD COLUMN     "cuisine" TEXT,
+ADD COLUMN     "description" TEXT,
+ADD COLUMN     "email" TEXT,
+ADD COLUMN     "googleMapsUrl" TEXT,
+ADD COLUMN     "logoUrl" TEXT,
+ADD COLUMN     "phone" TEXT,
+ADD COLUMN     "postalCode" TEXT,
+ADD COLUMN     "primaryColor" TEXT,
+ADD COLUMN     "state" TEXT,
+ADD COLUMN     "websiteUrl" TEXT;

@@ -3,8 +3,13 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import { createBrowserRouter } from "react-router-dom";
 import { env } from "../config/env";
 import { AppLayout } from "../components/layout/app-layout";
+import { AuthGuard } from "../components/layout/auth-guard";
 import { LandingPage } from "../features/landing/landing-page";
+import { SignInPage } from "../features/auth/sign-in-page";
+import { SignUpPage } from "../features/auth/sign-up-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
+import { DashboardOverviewPage } from "../features/dashboard/dashboard-overview";
+import { RestaurantSettingsPage } from "../features/restaurant/restaurant-settings-page";
 import { CustomerMenuPage } from "../features/customer-menu/customer-menu-page";
 import { NotFoundPage } from "../features/not-found/not-found-page";
 
@@ -16,11 +21,6 @@ const RootLayout = env.clerkPublishableKey
     )
   : ({ children }: { children: ReactNode }) => <>{children}</>;
 
-function withAuth(element: ReactNode): ReactNode {
-  // Protected-route guards land in Phase 1 with Clerk integration.
-  return element;
-}
-
 export const router = createBrowserRouter([
   {
     element: (
@@ -30,11 +30,27 @@ export const router = createBrowserRouter([
     ),
     children: [
       { path: "/", element: <LandingPage /> },
+      { path: "/sign-in", element: <SignInPage /> },
+      { path: "/sign-up", element: <SignUpPage /> },
       {
-        path: "/dashboard",
-        element: withAuth(<DashboardPage />),
+        // Protected dashboard routes: require an authenticated session.
+        element: <AuthGuard />,
+        children: [
+          {
+            path: "/dashboard",
+            element: <DashboardPage />,
+            children: [
+              { index: true, element: <DashboardOverviewPage /> },
+              {
+                path: "settings",
+                element: <RestaurantSettingsPage />,
+              },
+            ],
+          },
+        ],
       },
       {
+        // Public customer menu — no account required (PRD §customer-auth).
         path: "/q/:token",
         element: <CustomerMenuPage />,
       },

@@ -8,6 +8,20 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dynamicmenu
+          POSTGRES_PASSWORD: dynamicmenu
+          POSTGRES_DB: dynamicmenu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dynamicmenu"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -21,6 +35,10 @@ jobs:
 
       - name: Generate Prisma client
         run: npm run db:generate -w @dynamicmenu/api
+
+      - name: Configure test database
+        run: |
+          echo 'DATABASE_URL="postgresql://dynamicmenu:dynamicmenu@localhost:5432/dynamicmenu_test"' > apps/api/.env.test
 
       - name: Type check
         run: npm run typecheck

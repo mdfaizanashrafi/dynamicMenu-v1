@@ -50,8 +50,7 @@ export async function verifyClerkToken(token: string): Promise<AuthIdentity> {
       email,
       name:
         user?.fullName ??
-        [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-        null,
+        ([user?.firstName, user?.lastName].filter(Boolean).join(" ") || null),
     };
   } catch (error) {
     if (error instanceof ApiError) throw error;

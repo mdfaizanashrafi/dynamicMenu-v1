@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, Restaurant } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { ApiError } from "../../utils/api-error.js";
 import type {
@@ -88,5 +88,72 @@ export async function listMembers(restaurantId: string) {
       createdAt: true,
       user: { select: { id: true, name: true, email: true } },
     },
+  });
+}
+
+/** Full profile plus onboarding progress for the dashboard. */
+export async function getRestaurantDetail(restaurantId: string) {
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id: restaurantId },
+  });
+  if (!restaurant) {
+    throw new ApiError(
+      404,
+      "RESTAURANT_NOT_FOUND",
+      "The requested restaurant could not be found."
+    );
+  }
+  return { ...restaurant, onboarding: computeOnboarding(restaurant) };
+}
+
+export interface OnboardingStep {
+  key: string;
+  label: string;
+  completed: boolean;
+}
+
+export interface OnboardingProgress {
+  steps: OnboardingStep[];
+  completedCount: number;
+  total: number;
+}
+
+/**
+ * Profile onboarding checklist (DESIGN.md §9 step 2). Derived from the
+ * profile fields so progress never drifts from the actual data; later
+ * phases extend this with menu/theme/table steps.
+ */
+export function computeOnboarding(r: Restaurant): OnboardingProgress {
+  const steps: OnboardingStep[] = [
+    { key: "identity", label: "Restaurant name", completed: !!r.name },
+    {
+      key: "profile",
+      label: "Cuisine & description",
+      completed: !!r.cuisine && !!r.description,
+    },
+    {
+      key: "contact",
+      label: "Contact details",
+      completed: !!r.phone || !!r.email,
+    },
+    {
+      key: "address",
+      label: "Address",
+      completed: !!r.addressLine1 && !!r.city,
+    },
+    { key: "logo", label: "Logo", completed: !!r.logoUrl },
+    { key: "maps", label: "Google Maps link", completed: !!r.googleMapsUrl },
+  ];
+  return {
+    steps,
+    completedCount: steps.filter((s) => s.completed).length,
+    total: steps.length,
+  };
+}
+
+export async function setRestaurantLogo(restaurantId: string, logoUrl: string) {
+  return prisma.restaurant.update({
+    where: { id: restaurantId },
+    data: { logoUrl },
   });
 }

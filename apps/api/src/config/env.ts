@@ -10,6 +10,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().optional(),
   CLERK_SECRET_KEY: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
+  UPLOAD_DIR: z.string().default("uploads"),
   ENABLE_DEV_AUTH: z
     .enum(["true", "false"])
     .default("false")

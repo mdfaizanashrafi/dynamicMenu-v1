@@ -1,8 +1,8 @@
 import type { Role } from "@prisma/client";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { prisma } from "../../lib/prisma.js";
-import { ApiError } from "../../utils/api-error.js";
-import { roleAtLeast } from "../../utils/roles.js";
+import { prisma } from "../lib/prisma.js";
+import { ApiError } from "../utils/api-error.js";
+import { roleAtLeast } from "../utils/roles.js";
 
 /**
  * Resolve tenant context for :restaurantId routes.
@@ -16,7 +16,7 @@ export const requireMembership = (
 ): RequestHandler => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const { restaurantId } = req.params;
+      const { restaurantId } = req.params as { restaurantId?: string };
       const user = req.user;
 
       if (!user) {

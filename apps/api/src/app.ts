@@ -18,6 +18,9 @@ export function createApp(verifier?: AuthVerifier): Express {
   app.use(express.json({ limit: "1mb" }));
   app.use(pinoHttp({ logger }));
 
+  // Uploaded images (logo) served from the local storage provider (dev/CI).
+  app.use("/uploads", express.static(env.UPLOAD_DIR));
+
   // Public endpoints are rate-limited per ARCHITECTURE.md §27.
   const publicLimiter = rateLimit({
     windowMs: 60_000,
