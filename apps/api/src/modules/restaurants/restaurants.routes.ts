@@ -1,9 +1,9 @@
 import { Router } from "express";
 import type { Request, RequestHandler, Response } from "express";
-import multer from "multer";
 import { z } from "zod";
 import { requireMembership } from "../../middleware/authorization.js";
 import { validate } from "../../middleware/validate.js";
+import { extensionFor, uploadImage } from "../../middleware/upload-image.js";
 import { imageStorage } from "../../services/storage.js";
 import { ApiError } from "../../utils/api-error.js";
 import { asyncHandler } from "../../utils/async-handler.js";
@@ -21,32 +21,6 @@ import {
 } from "./restaurants.schemas.js";
 
 const restaurantParams = z.object({ restaurantId: z.string().min(1) });
-
-/** Accepted logo formats and the extension used when storing the file. */
-const LOGO_EXTENSIONS: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
-const MAX_LOGO_BYTES = 2 * 1024 * 1024;
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_LOGO_BYTES, files: 1 },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype in LOGO_EXTENSIONS) {
-      cb(null, true);
-    } else {
-      cb(
-        new ApiError(
-          400,
-          "INVALID_FILE_TYPE",
-          "Only JPEG, PNG or WebP images are allowed."
-        )
-      );
-    }
-  },
-});
 
 export function createRestaurantsRouter(requireAuth: RequestHandler): Router {
   const router = Router();

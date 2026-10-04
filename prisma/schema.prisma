@@ -24,6 +24,19 @@ enum RestaurantStatus {
   CLOSED
 }
 
+enum MenuStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum DietaryTag {
+  VEG
+  NON_VEG
+  VEGAN
+  SPICY
+  GLUTEN_FREE
+}
+
 model User {
   id        String   @id @default(cuid())
   clerkId   String   @unique
@@ -61,9 +74,118 @@ model Restaurant {
   updatedAt     DateTime         @updatedAt
 
   memberships RestaurantMembership[]
+  menus       Menu[]
 
   @@index([slug])
   @@index([status])
+}
+
+// ── Phase 3 — Menu management (PHASES.md §7) ─────────────────────────────
+// The draft tree (Menu → MenuSection → MenuItem → variants/addons) is the
+// editable working copy. Publishing validates it and writes a self-contained
+// MenuRevision snapshot; customer-facing endpoints serve snapshots only, so
+// draft edits never leak to the live menu (ARCHITECTURE.md §11).
+
+model Menu {
+  id                String      @id @default(cuid())
+  restaurantId      String
+  name              String
+  description       String?
+  status            MenuStatus  @default(DRAFT)
+  isActive          Boolean     @default(true)
+  archivedAt        DateTime?
+  // Latest published snapshot; null while DRAFT.
+  currentRevisionId String?     @unique
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  restaurant Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  currentRevision MenuRevision? @relation("MenuCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+  sections    MenuSection[]
+  revisions   MenuRevision[]
+
+  @@index([restaurantId, status])
+  @@index([restaurantId, archivedAt])
+}
+
+model MenuRevision {
+  id           String   @id @default(cuid())
+  menuId       String
+  snapshot     Json
+  sectionCount Int
+  itemCount    Int
+  publishedAt  DateTime @default(now())
+
+  menu          Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  currentOfMenu Menu? @relation("MenuCurrentRevision")
+
+  @@index([menuId, publishedAt])
+}
+
+model MenuSection {
+  id          String   @id @default(cuid())
+  menuId      String
+  name        String
+  description String?
+  position    Int      @default(0)
+  isHidden    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  menu  Menu      @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  items MenuItem[]
+
+  @@index([menuId, position])
+}
+
+model MenuItem {
+  id          String       @id @default(cuid())
+  sectionId   String
+  name        String
+  description String?
+  imageUrl    String?
+  price       Decimal      @db.Decimal(10, 2)
+  isAvailable Boolean      @default(true)
+  dietaryTags DietaryTag[]
+  position    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  section  MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  variants MenuItemVariant[]
+  addons   MenuItemAddon[]
+
+  @@index([sectionId, position])
+}
+
+model MenuItemVariant {
+  id          String   @id @default(cuid())
+  itemId      String
+  name        String
+  price       Decimal  @db.Decimal(10, 2)
+  isAvailable Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  item MenuItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, position])
+}
+
+model MenuItemAddon {
+  id          String   @id @default(cuid())
+  itemId      String
+  name        String
+  price       Decimal  @db.Decimal(10, 2)
+  isAvailable Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  item MenuItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, position])
 }
 
 model RestaurantMembership {

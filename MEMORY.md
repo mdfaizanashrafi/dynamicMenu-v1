@@ -624,7 +624,15 @@ Status:
 
 # 15. Architecture Changes
 
-None yet.
+```text
+Date: 2026-10-03
+Change: Image storage provider
+Previous: ARCHITECTURE.md §28 recommends external object storage (S3/Cloudinary/R2) selected during implementation; no provider credentials exist yet.
+New: `apps/api/src/services/storage.ts` defines an ImageStorage interface; the active provider writes to local disk (UPLOAD_DIR, default apps/api/uploads, gitignored) and files are served from /uploads via express.static. The logo URL stored in PostgreSQL is absolute (API_BASE_URL-based).
+Reason: Logo upload is required by Phase 2 acceptance criteria but no object-storage credentials exist locally.
+Affected Components: restaurants logo endpoint, app.ts static serving, .env.example (UPLOAD_DIR), .gitignore (uploads/).
+Note: Swap the provider (implement ImageStorage) before production; Render's filesystem is ephemeral.
+```
 
 Record actual architectural changes here.
 
@@ -651,7 +659,11 @@ Do not record proposed architecture as an architecture change.
 
 ## Test Database
 
-API integration tests read `apps/api/.env.test` (gitignored) for `DATABASE_URL`, apply migrations via `prisma migrate deploy` in `test/global-setup.ts`, and run sequentially (`fileParallelism: false`). CI recreates the same setup with a Postgres service container.
+API integration tests get their env from `apps/api/.env.test` (gitignored), which `test/global-setup.ts` loads into `process.env` in the main thread before workers spawn; the same file drives `prisma migrate deploy`. Tests run sequentially (`fileParallelism: false`). CI recreates the same setup with a Postgres service container. The local dev database (`dynamicmenu_dev`, from `apps/api/.env`) is migrated with `npm run db:deploy -w @dynamicmenu/api` — keep it in sync when adding migrations.
+
+## Local Image Storage
+
+Uploaded logos land in `apps/api/uploads/` (gitignored), served at `GET /uploads/:file`. Limits: JPEG/PNG/WebP only, 2 MB. Validation happens in multer (mimetype, size) and errors map to 400 `INVALID_FILE_TYPE` / `FILE_TOO_LARGE`.
 
 ## Tenant Isolation
 
@@ -768,26 +780,32 @@ Important security requirements:
 
 # 19. Current Database State
 
-**Status:** Tenant core implemented and migration-tested; dev/prod database pending
+**Status:** Tenant core + restaurant profile implemented; dev + test databases migrated
 
-`prisma/schema.prisma` (PostgreSQL) now contains the Phase 1 tenant core:
+`prisma/schema.prisma` (PostgreSQL) contains the Phase 1 tenant core and the Phase 2 restaurant profile:
 
 ```text
 User                     (id, clerkId unique, email unique, name)
-Restaurant               (id, name, slug unique, status: ACTIVE/SUSPENDED/CLOSED)
+Restaurant               (id, name, slug unique, status,
+                          description, cuisine, phone, email, websiteUrl,
+                          addressLine1/2, city, state, postalCode, country,
+                          logoUrl, primaryColor, googleMapsUrl)
 RestaurantMembership     (userId + restaurantId unique, role, cascade deletes)
 Role enum                OWNER | ADMIN | MANAGER | STAFF
 ```
 
-Migration `20260927181123_phase1_tenant_core` exists under `prisma/migrations/` and is applied by tests via `prisma migrate deploy` (see `apps/api/test/global-setup.ts`, DB URL from gitignored `apps/api/.env.test` pointing at a local Postgres — verified working).
+Migrations under `prisma/migrations/`:
+
+```text
+20260927181123_phase1_tenant_core
+20261003132614_phase2_restaurant_profile
+```
+
+Applied to the local test database (via `test/global-setup.ts`) and the local dev database (`dynamicmenu_dev`). Onboarding progress is NOT stored — it is derived from the profile fields (see `computeOnboarding` in restaurants.service.ts).
 
 Remaining planned entities (none implemented yet):
 
 ```text
-User
-Restaurant
-RestaurantMembership
-
 Menu
 MenuSection
 MenuItem
@@ -821,7 +839,7 @@ Do not mark entities as implemented until the actual Prisma schema and database 
 
 # 20. Current API State
 
-**Status:** Phase 1 auth & tenant endpoints implemented
+**Status:** Phase 1 auth & tenant endpoints + Phase 2 onboarding endpoints implemented
 
 Express 5 + TypeScript API at `apps/api` with the Phase 0 foundation (health, error envelope per ARCHITECTURE.md §33, zod validation, helmet/cors/rate-limit, pino, Sentry handler) plus:
 
@@ -829,7 +847,9 @@ Express 5 + TypeScript API at `apps/api` with the Phase 0 foundation (health, er
 GET    /api/v1/me                     → current profile (requireAuth)
 GET    /api/v1/restaurants            → caller's memberships only (requireAuth)
 POST   /api/v1/restaurants            → create restaurant + OWNER membership (transaction)
-PATCH  /api/v1/restaurants/:id        → ADMIN+ membership required
+GET    /api/v1/restaurants/:id        → full profile + derived onboarding progress (any member)
+PATCH  /api/v1/restaurants/:id        → edit profile/settings, ADMIN+ (zod-validated, all fields optional)
+POST   /api/v1/restaurants/:id/logo   → multipart logo upload, ADMIN+ (JPEG/PNG/WebP ≤ 2 MB, local-disk storage)
 GET    /api/v1/restaurants/:id/members→ ADMIN+ membership required
 ```
 
@@ -899,6 +919,14 @@ Status: @sentry/node and @sentry/react wired (activate with SENTRY_DSN / VITE_SE
 ---
 
 # 22. Recent Work
+
+2026-10-03 — Completed and verified Phase 2 (Restaurant Onboarding) locally:
+
+* Prisma: added 13 profile fields to Restaurant (description, cuisine, phone, email, websiteUrl, address line1/2, city, state, postalCode, country, logoUrl, primaryColor, googleMapsUrl) + migration `20261003132614_phase2_restaurant_profile`; migrated both local dev and test databases.
+* API: `GET /restaurants/:id` (full profile + derived 6-step onboarding progress), extended `PATCH` (all profile fields, zod-validated, optional so owners can skip), `POST /restaurants/:id/logo` (multipart via multer, JPEG/PNG/WebP ≤ 2 MB, `ImageStorage` interface with local-disk provider, files served from `/uploads`).
+* Web: dashboard split into layout (header/nav) + nested routes; new `/dashboard/settings` page (profile form with section anchors, LogoUploader with empty/uploading/preview/error states, branding color picker; ADMIN+ edit, read-only below); onboarding progress card on the overview with deep links back to settings; apiFetch supports FormData.
+* Fixed a latent test-infra bug: Vitest silently ignored `setupFiles`, so tests were running against the dev database (`dynamicmenu_dev`) instead of the test one; env now loads in `test/global-setup.ts` and `setup.ts` was removed (recorded in Known Issues).
+* Verified: typecheck, lint, 27 tests, build, and a full HTTP smoke of the onboarding flow (create → patch → logo upload → 6/6 progress → uploaded file byte-identical and served).
 
 2026-10-03 — Completed and verified Phase 1 (Authentication & Multi-Tenancy) locally:
 
@@ -996,15 +1024,15 @@ Restaurant is the primary tenant boundary.
 The immediate next action is:
 
 ```text
-Phase 1 complete locally
+Phase 2 complete locally
         ↓
 Obtain hosted credentials (Neon, Clerk, Sentry)
         ↓
-Verify real sign-in + database connectivity
+Verify real sign-in + database connectivity in a browser
         ↓
 Commit, push, confirm CI passes
         ↓
-Begin Phase 2 — Restaurant Onboarding
+Begin Phase 3 — Menu Management
 ```
 
 ---
@@ -1015,7 +1043,7 @@ Begin Phase 2 — Restaurant Onboarding
 No blockers recorded.
 ```
 
-Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 2 development.
+Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 3 development.
 ```
 
 ---
@@ -1036,10 +1064,12 @@ Monorepo scaffold      → Implemented & verified (local)
 Frontend foundation    → Implemented & verified (local)
 Backend foundation     → Implemented & verified (local)
 Phase 1 auth + tenancy → Implemented & verified (local; stub/test verifiers)
-Database (Prisma)      → Tenant core migrated & tested on local Postgres; awaiting Neon URL
+Phase 2 onboarding     → Implemented & verified (local; full HTTP smoke test)
+Database (Prisma)      → Two migrations applied on local dev + test Postgres; awaiting Neon URL
 Authentication (Clerk) → Code complete; awaiting Clerk application keys
 Monitoring (Sentry)    → Wired; awaiting DSN
 Deployment             → Config files ready; not provisioned
+Image storage          → Local-disk provider behind ImageStorage interface; swap before production
 Production system      → Not started
 ```
 
@@ -1048,7 +1078,8 @@ Production system      → Not started
 # 28. Last Updated
 
 ```text
-2026-10-03 — Phase 1 (Authentication & Multi-Tenancy) implemented and verified locally: Clerk token verification + user sync, User/Restaurant/RestaurantMembership schema + migration, role-based tenant isolation (404/403/401), protected APIs, AuthGuard-protected dashboard routes, 17 tests passing (incl. cross-tenant integration tests against real Postgres), CI workflow given a Postgres test service. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-04 — Phase 2 (Restaurant Onboarding) implemented and verified locally: 13 restaurant profile fields + migration 20261003132614_phase2_restaurant_profile (dev + test DBs), GET /restaurants/:id with derived 6-step onboarding progress, PATCH profile (all-optional zod validation), multipart logo upload (JPEG/PNG/WebP ≤ 2 MB, ImageStorage interface w/ local-disk provider), dashboard settings page + onboarding progress card, 27 tests passing, full HTTP smoke of the onboarding flow. Fixed test-infra bug where Vitest ignored setupFiles and tests ran against the dev DB. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-03 — Phase 1 (Authentication & Multi-Tenancy) implemented and verified locally: Clerk token verification + user sync, User/Restaurant/RestaurantMembership schema + migration, role-based tenant isolation (404/403/401), protected APIs, AuthGuard-protected dashboard routes, CI workflow given a Postgres test service.
 ```
 
 ---

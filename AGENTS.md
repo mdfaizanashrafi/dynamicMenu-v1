@@ -13,7 +13,7 @@ There are two user experiences:
 - **Restaurant dashboard** (owners/managers/staff): onboarding, menu CMS, themes, offers, tables & QR, orders, customers, loyalty, analytics.
 - **Customer menu** (mobile-first, no account required): QR scan → published menu → cart → order → review prompt.
 
-**Current state: Phase 1 — Authentication & Multi-Tenancy complete and verified locally; hosted services (Neon, Clerk, Sentry, Vercel, Render) await credentials. See `MEMORY.md` for the authoritative record.** Never assume a framework, file, or service exists until you verify it in the repo.
+**Current state: Phase 2 — Restaurant Onboarding complete and verified locally; hosted services (Neon, Clerk, Sentry, Vercel, Render) await credentials. See `MEMORY.md` for the authoritative record.** Never assume a framework, file, or service exists until you verify it in the repo.
 
 ### Planned technology stack
 
@@ -152,4 +152,4 @@ Additional requirements (`RULES.md` §9, `ARCHITECTURE.md` §27):
 - Ask before proceeding when requirements conflict or a decision is materially ambiguous.
 - After any change: sweep for comments/docstrings describing old behavior and update them; update `MEMORY.md`; keep `AGENTS.md` accurate if project guidance changes.
 
-Last reviewed: 2026-10-03 (project at Phase 1 complete locally — auth & multi-tenancy implemented and verified; hosted credentials pending).
+Last reviewed: 2026-10-04 (project at Phase 2 complete locally — restaurant onboarding implemented and verified; hosted credentials pending).
