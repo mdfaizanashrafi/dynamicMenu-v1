@@ -68,7 +68,7 @@ export function createRestaurantsRouter(requireAuth: RequestHandler): Router {
   router.post(
     "/:restaurantId/logo",
     requireMembership("ADMIN"),
-    upload.single("file"),
+    uploadImage,
     asyncHandler(async (req: Request, res: Response) => {
       const { restaurantId } = req.params as { restaurantId: string };
       if (!req.file) {
@@ -78,18 +78,9 @@ export function createRestaurantsRouter(requireAuth: RequestHandler): Router {
           "No image file was uploaded (field name: file)."
         );
       }
-      const extension = LOGO_EXTENSIONS[req.file.mimetype];
-      if (!extension) {
-        // Unreachable: the fileFilter gates mimetypes. Defensive, not trusted.
-        throw new ApiError(
-          400,
-          "INVALID_FILE_TYPE",
-          "Only JPEG, PNG or WebP images are allowed."
-        );
-      }
       const { url } = await imageStorage.saveImage({
         buffer: req.file.buffer,
-        extension,
+        extension: extensionFor(req.file.mimetype),
       });
       const restaurant = await setRestaurantLogo(restaurantId, url);
       res.json({ success: true, data: restaurant });

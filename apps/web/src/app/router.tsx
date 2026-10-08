@@ -10,6 +10,9 @@ import { SignUpPage } from "../features/auth/sign-up-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
 import { DashboardOverviewPage } from "../features/dashboard/dashboard-overview";
 import { RestaurantSettingsPage } from "../features/restaurant/restaurant-settings-page";
+import { MenusPage } from "../features/menus/menus-page";
+import { MenuBuilderPage } from "../features/menus/menu-builder-page";
+import { ThemesPage } from "../features/themes/themes-page";
 import { CustomerMenuPage } from "../features/customer-menu/customer-menu-page";
 import { NotFoundPage } from "../features/not-found/not-found-page";
 
@@ -45,6 +48,9 @@ export const router = createBrowserRouter([
                 path: "settings",
                 element: <RestaurantSettingsPage />,
               },
+              { path: "menus", element: <MenusPage /> },
+              { path: "menus/:menuId", element: <MenuBuilderPage /> },
+              { path: "themes", element: <ThemesPage /> },
             ],
           },
         ],

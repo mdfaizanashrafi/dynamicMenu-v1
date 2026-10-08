@@ -75,6 +75,7 @@ model Restaurant {
 
   memberships RestaurantMembership[]
   menus       Menu[]
+  theme       RestaurantTheme?
 
   @@index([slug])
   @@index([status])
@@ -186,6 +187,23 @@ model MenuItemAddon {
   item MenuItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId, position])
+}
+
+// ── Phase 4 — Theme system (PHASES.md §8) ────────────────────────────────
+// A theme is a presentation layer: stored as JSON config, applied to menu
+// data at render time. Draft/published split mirrors menus; editing a theme
+// never touches menu rows (ARCHITECTURE.md §12).
+
+model RestaurantTheme {
+  id             String    @id @default(cuid())
+  restaurantId   String    @unique
+  draftConfig    Json?
+  publishedConfig Json?
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 
 model RestaurantMembership {

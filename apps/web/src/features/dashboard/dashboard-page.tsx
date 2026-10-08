@@ -9,10 +9,10 @@ import { RestaurantSelector } from "./restaurant-selector";
 
 const NAV_ITEMS: { label: string; to?: string }[] = [
   { label: "Overview", to: "/dashboard" },
-  { label: "Menus" },
+  { label: "Menus", to: "/dashboard/menus" },
   { label: "Orders" },
   { label: "Offers" },
-  { label: "Themes" },
+  { label: "Themes", to: "/dashboard/themes" },
   { label: "QR & Tables" },
   { label: "Customers" },
   { label: "Analytics" },

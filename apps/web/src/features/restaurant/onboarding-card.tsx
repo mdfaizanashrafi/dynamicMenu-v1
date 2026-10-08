@@ -40,30 +40,34 @@ export function OnboardingCard({ onboarding }: Props) {
       </div>
 
       <ul className="mt-4 space-y-2">
-        {onboarding.steps.map((step) => (
-          <li key={step.key} className="flex items-center gap-2 text-sm">
-            <span
-              aria-hidden
-              className={
-                step.completed
-                  ? "text-success"
-                  : "text-text-secondary"
-              }
-            >
-              {step.completed ? "✓" : "○"}
-            </span>
-            {step.completed ? (
-              <span className="text-text-secondary">{step.label}</span>
-            ) : (
-              <Link
-                to={`/dashboard/settings#${step.key}`}
-                className="font-medium text-brand-primary hover:text-brand-primary-hover"
+        {onboarding.steps.map((step) => {
+          const target =
+            step.key === "menu"
+              ? "/dashboard/menus"
+              : `/dashboard/settings#${step.key}`;
+          return (
+            <li key={step.key} className="flex items-center gap-2 text-sm">
+              <span
+                aria-hidden
+                className={
+                  step.completed ? "text-success" : "text-text-secondary"
+                }
               >
-                {step.label}
-              </Link>
-            )}
-          </li>
-        ))}
+                {step.completed ? "✓" : "○"}
+              </span>
+              {step.completed ? (
+                <span className="text-text-secondary">{step.label}</span>
+              ) : (
+                <Link
+                  to={target}
+                  className="font-medium text-brand-primary hover:text-brand-primary-hover"
+                >
+                  {step.label}
+                </Link>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

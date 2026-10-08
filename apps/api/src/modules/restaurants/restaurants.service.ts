@@ -93,9 +93,18 @@ export async function listMembers(restaurantId: string) {
 
 /** Full profile plus onboarding progress for the dashboard. */
 export async function getRestaurantDetail(restaurantId: string) {
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id: restaurantId },
-  });
+  const [restaurant, publishedMenu] = await Promise.all([
+    prisma.restaurant.findUnique({ where: { id: restaurantId } }),
+    prisma.menu.findFirst({
+      where: {
+        restaurantId,
+        archivedAt: null,
+        status: "PUBLISHED",
+        isActive: true,
+      },
+      select: { id: true },
+    }),
+  ]);
   if (!restaurant) {
     throw new ApiError(
       404,
@@ -103,7 +112,10 @@ export async function getRestaurantDetail(restaurantId: string) {
       "The requested restaurant could not be found."
     );
   }
-  return { ...restaurant, onboarding: computeOnboarding(restaurant) };
+  return {
+    ...restaurant,
+    onboarding: computeOnboarding(restaurant, !!publishedMenu),
+  };
 }
 
 export interface OnboardingStep {
@@ -119,11 +131,14 @@ export interface OnboardingProgress {
 }
 
 /**
- * Profile onboarding checklist (DESIGN.md §9 step 2). Derived from the
- * profile fields so progress never drifts from the actual data; later
- * phases extend this with menu/theme/table steps.
+ * Profile onboarding checklist (DESIGN.md §9). Derived from the profile
+ * fields so progress never drifts from the actual data; later phases can
+ * extend this with table/QR and review-flow steps.
  */
-export function computeOnboarding(r: Restaurant): OnboardingProgress {
+export function computeOnboarding(
+  r: Restaurant,
+  hasPublishedMenu = false
+): OnboardingProgress {
   const steps: OnboardingStep[] = [
     { key: "identity", label: "Restaurant name", completed: !!r.name },
     {
@@ -143,6 +158,11 @@ export function computeOnboarding(r: Restaurant): OnboardingProgress {
     },
     { key: "logo", label: "Logo", completed: !!r.logoUrl },
     { key: "maps", label: "Google Maps link", completed: !!r.googleMapsUrl },
+    {
+      key: "menu",
+      label: "First menu published",
+      completed: hasPublishedMenu,
+    },
   ];
   return {
     steps,

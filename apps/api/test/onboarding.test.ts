@@ -35,20 +35,24 @@ describe("onboarding progress (unit)", () => {
   it("derives steps from profile fields", () => {
     const base = { name: "R" } as Restaurant;
     const empty = computeOnboarding(base);
-    expect(empty.total).toBe(6);
+    expect(empty.total).toBe(7);
     expect(empty.completedCount).toBe(1); // identity only
     expect(empty.steps.find((s) => s.key === "logo")?.completed).toBe(false);
+    expect(empty.steps.find((s) => s.key === "menu")?.completed).toBe(false);
 
-    const full = computeOnboarding({
-      ...base,
-      cuisine: "North Indian",
-      description: "Dum biryani house",
-      phone: "+91 9999999999",
-      addressLine1: "1 MG Road",
-      city: "Bengaluru",
-      logoUrl: "http://localhost:4000/uploads/logo.png",
-      googleMapsUrl: "https://maps.app.goo.gl/abc",
-    } as Restaurant);
+    const full = computeOnboarding(
+      {
+        ...base,
+        cuisine: "North Indian",
+        description: "Dum biryani house",
+        phone: "+91 9999999999",
+        addressLine1: "1 MG Road",
+        city: "Bengaluru",
+        logoUrl: "http://localhost:4000/uploads/logo.png",
+        googleMapsUrl: "https://maps.app.goo.gl/abc",
+      } as Restaurant,
+      true // published menu exists
+    );
     expect(full.completedCount).toBe(full.total);
   });
 });
@@ -74,9 +78,9 @@ describe("restaurant onboarding (integration)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe("Onboard Test");
-    expect(res.body.data.onboarding.total).toBe(6);
+    expect(res.body.data.onboarding.total).toBe(7);
     expect(res.body.data.onboarding.completedCount).toBe(1);
-    expect(res.body.data.onboarding.steps).toHaveLength(6);
+    expect(res.body.data.onboarding.steps).toHaveLength(7);
   });
 
   it("updates the profile and reflects progress", async () => {
@@ -105,7 +109,8 @@ describe("restaurant onboarding (integration)", () => {
     const detail = await request(app)
       .get(`/api/v1/restaurants/${restaurant.id}`)
       .set(authHeader("clerk_owner"));
-    // All steps except logo are complete after this patch.
+    // Profile, contact, address and maps steps are complete after this patch
+    // (logo and first-menu are still pending).
     expect(detail.body.data.onboarding.completedCount).toBe(5);
     expect(
       detail.body.data.onboarding.steps.find((s: { key: string }) => s.key === "maps")?.completed

@@ -20,9 +20,10 @@ const progress: OnboardingProgress = {
     { key: "address", label: "Address", completed: false },
     { key: "logo", label: "Logo", completed: false },
     { key: "maps", label: "Google Maps link", completed: false },
+    { key: "menu", label: "First menu published", completed: false },
   ],
   completedCount: 1,
-  total: 6,
+  total: 7,
 };
 
 describe("OnboardingCard", () => {
@@ -33,7 +34,7 @@ describe("OnboardingCard", () => {
   it("shows the completion count and progress bar", () => {
     renderCard(progress);
 
-    expect(screen.getByText("1 of 6 · 17%")).toBeDefined();
+    expect(screen.getByText("1 of 7 · 14%")).toBeDefined();
     expect(screen.getByRole("progressbar")).toBeDefined();
   });
 
@@ -49,12 +50,12 @@ describe("OnboardingCard", () => {
   it("shows 100% when everything is complete", () => {
     const done: OnboardingProgress = {
       ...progress,
-      completedCount: 6,
+      completedCount: 7,
       steps: progress.steps.map((s) => ({ ...s, completed: true })),
     };
     renderCard(done);
 
-    expect(screen.getByText("6 of 6 · 100%")).toBeDefined();
+    expect(screen.getByText("7 of 7 · 100%")).toBeDefined();
     expect(screen.queryByRole("link")).toBeNull();
   });
 });

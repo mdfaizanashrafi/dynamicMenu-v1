@@ -36,13 +36,13 @@ Restaurant customer.
 
 # 2. Current Project Status
 
-**Current Phase:** Phase 2 — Restaurant Onboarding (implemented and verified locally; hosted Clerk account still pending)
+**Current Phase:** Phase 4 — Theme System (implemented and verified locally; hosted Clerk account still pending)
 
-**Status:** Phase 2 code complete and verified locally (typecheck/lint/test/build + full onboarding smoke test over HTTP). A hosted Clerk application and Neon database are still required to verify the authenticated experience end-to-end in a browser.
+**Status:** Phase 4 code complete and verified locally (typecheck/lint/test/build + HTTP smoke of save → publish → draft-isolation). Themes are data-independent presentation layers: theme changes are proven not to touch menu data.
 
 **Current Objective:**
 
-Let a new restaurant configure its identity: profile (cuisine, description, contact, address), logo upload, Google Maps review link, basic branding, with visible onboarding progress.
+Let owners style the customer menu: pick from built-in presets, customize colors/typography/cards/buttons/background/header/decorations/cover image, preview live, and publish — without ever modifying menu content (ARCHITECTURE.md §12).
 
 ### Current State
 
@@ -64,6 +64,14 @@ Phase 1: Auth & Multi-Tenancy
 Implemented & verified locally
     ↓
 Phase 2: Restaurant Onboarding
+    ↓
+Implemented & verified locally
+    ↓
+Phase 3: Menu Management
+    ↓
+Implemented & verified locally
+    ↓
+Phase 4: Theme System
     ↓
 Implemented & verified locally
 (Hosted services pending credentials)
@@ -123,7 +131,70 @@ Customer Review Flow
 
 # 4. Current Development Phase
 
-## Phase 2 — Restaurant Onboarding
+## Phase 4 — Theme System
+
+### Objective
+
+Allow restaurants to customize how their customer-facing menu looks (PHASES.md §8): theme selection, configuration, preview, publishing.
+
+### Current Completion
+
+```text
+Theme model + migration       [x] Done (RestaurantTheme: draftConfig/publishedConfig JSON + publishedAt, migration phase4_theme_system)
+Theme presets                 [x] Done (4 built-ins: Modern Minimal, Midnight Luxury, Traditional Indian, Festive — themes/themes.presets.ts)
+Theme APIs                    [x] Done (GET/PUT /theme, POST /theme/publish, GET /theme/preview, POST /theme/image; MANAGER+)
+Draft/publish split           [x] Done (same pattern as menus; published theme stays stable while draft is edited)
+Menu data integrity           [x] Done (integration test: theme save+publish leaves menu rows AND revision snapshot byte-identical)
+Builder UI                    [x] Done (/dashboard/themes: preset gallery, color/typography/card/button/background/header/decorations controls, cover upload, sticky live preview w/ real published menu or sample dishes)
+Design tokens                 [x] Done (themeToTokens maps config → CSS custom properties; unit-tested; reused by Phase 6 customer menu)
+```
+
+### Key Design Decision
+
+Themes are presentation-only config JSON (ARCHITECTURE.md §12). The customer menu renderer (Phase 6) applies theme tokens to menu data at render time; menu rows and MenuRevision snapshots are never written by theme operations. Cover images get a dark overlay to protect text contrast (DESIGN.md §12.5).
+
+### Verification (2026-10-08, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (45 tests), `npm run build` all pass.
+New API tests (`apps/api/test/themes.test.ts`, 6 tests): preset defaults, save/validation/publish stability, menu-data integrity (rows + snapshot unchanged), preview payload, role/tenant boundaries.
+Web tests: `theme-to-tokens` unit tests (colors/fonts/radii, solid/gradient/pattern/cover backgrounds).
+HTTP smoke: default presets → save midnight-luxury draft → publish → preview → edit draft to festive → published still midnight-luxury.
+
+---
+
+## Phase 3 — Menu Management (completed)
+
+### Objective
+
+Build the core restaurant menu CMS (PHASES.md §7): menus, sections, items, variants, add-ons, images, pricing, availability, draft/publish.
+
+### Current Completion
+
+```text
+Menu model + migration        [x] Done (Menu/MenuSection/MenuItem/MenuItemVariant/MenuItemAddon/MenuRevision, 20261004073613_phase3_menu_management)
+Menu CRUD + activate/archive  [x] Done (archive is soft-delete; revisions preserved)
+Section CRUD + reorder + hide [x] Done (PUT sections/order)
+Item CRUD                     [x] Done (variants/add-ons nested, wholesale replace on update)
+Item images                   [x] Done (shared upload-image middleware, local-disk storage)
+Availability + dietary tags   [x] Done (item/variant/add-on level; VEG/NON_VEG/VEGAN/SPICY/GLUTEN_FREE)
+Draft/publish                 [x] Done (publish validates + writes MenuRevision snapshot; draft stays editable; unpublish supported; revision history endpoint)
+Builder UI                    [x] Done (/dashboard/menus list; /dashboard/menus/:id builder with section cards, item dialog, publish dialog)
+Onboarding integration        [x] Done ("First menu published" step; total now 7)
+```
+
+### Key Design Decision
+
+Draft/publish uses **snapshot revisions** (ARCHITECTURE.md §11): the draft tree is the editable working copy; publishing validates it (≥1 section, ≥1 item) and stores a self-contained JSON snapshot in `MenuRevision`, which `Menu.currentRevisionId` points at. Customer endpoints (Phase 6) must serve snapshots only — draft edits never leak to the live menu (verified by an integration test that edits the draft after publishing and asserts the snapshot is unchanged).
+
+### Verification (2026-10-04, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (36 tests), `npm run build` all pass.
+New API tests (`apps/api/test/menus.test.ts`, 7 tests): menu/section/item CRUD, reorder, validation (bad price, bad dietary tag), item image upload + type rejection, publish of incomplete menu → 400 `MENU_INCOMPLETE`, publish + republish + unpublish, **draft-edit-after-publish does not change the live snapshot**, STAFF → 403, outsider and cross-restaurant menu access → 404.
+HTTP smoke: create menu → section → item with variants/add-ons → publish → draft item added → live snapshot still lists only the published item.
+
+---
+
+## Phase 2 — Restaurant Onboarding (completed)
 
 ### Objective
 
@@ -232,6 +303,10 @@ CI/CD                   [x] GitHub Actions workflow created; runs on push to Git
 [x] Phase 2 restaurant profile — 13 new Restaurant fields + migration 20261003132614_phase2_restaurant_profile (dev + test DBs migrated)
 [x] Phase 2 onboarding APIs — GET /:id detail with derived 6-step progress; PATCH profile; POST /:id/logo (multipart, type/size validated)
 [x] Phase 2 dashboard UI — /dashboard/settings (profile form, logo uploader, branding color), onboarding progress card on overview
+[x] Phase 3 menu domain — Menu/MenuSection/MenuItem/MenuItemVariant/MenuItemAddon/MenuRevision + migration 20261004073613_phase3_menu_management (dev + test DBs migrated)
+[x] Phase 3 menu APIs — full CRUD, section reorder/hide, item images, availability, dietary tags, publish/unpublish with snapshot revisions (draft edits never leak to the live snapshot)
+[x] Phase 3 builder UI — /dashboard/menus + /dashboard/menus/:menuId (section cards, item editor dialog with variants/add-ons, publish dialog with change summary)
+[x] Phase 4 theme system — RestaurantTheme (draft/published config JSON) + migration phase4_theme_system; 4 built-in presets; theme APIs with publish + preview; /dashboard/themes gallery + editor + live preview; menu-data integrity tested
 [ ] Database setup — Prisma configured; local dev + test Postgres verified; awaiting Neon DATABASE_URL for hosted environments
 [ ] Clerk authentication — code complete; awaiting Clerk application keys to verify real sign-in
 [ ] Sentry monitoring — SDK wired; awaiting DSN
@@ -239,6 +314,14 @@ CI/CD                   [x] GitHub Actions workflow created; runs on push to Git
 [ ] Render deployment — render.yaml ready; not provisioned
 [ ] CI/CD — workflow updated with Postgres service for tests; not yet run on GitHub
 ```
+
+Verification evidence (2026-10-08, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (45 tests), `npm run build` all pass.
+HTTP smoke: theme defaults → save draft → publish → preview → draft edit → published stable; theme save+publish leaves menu rows + snapshot byte-identical.
+
+Verification evidence (2026-10-04, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (36 tests), `npm run build` all pass.
+HTTP smoke: menu create → section → item (variants/add-ons) → publish → draft edit → live snapshot unchanged.
 
 Verification evidence (2026-10-03, local):
 `npm run typecheck`, `npm run lint`, `npm run test` (27 tests), `npm run build` all pass.
@@ -275,18 +358,18 @@ Expected Output:
 ## Immediate
 
 1. Create Neon database → point `DATABASE_URL` in `apps/api/.env` at it → run `npm run db:migrate -w @dynamicmenu/api`.
-2. Create Clerk application → set `VITE_CLERK_PUBLISHABLE_KEY` (apps/web/.env) and `CLERK_SECRET_KEY` (apps/api/.env), then verify real sign-up → sign-in → dashboard → settings end-to-end in a browser.
+2. Create Clerk application → set `VITE_CLERK_PUBLISHABLE_KEY` (apps/web/.env) and `CLERK_SECRET_KEY` (apps/api/.env), then verify real sign-up → sign-in → dashboard → menu builder end-to-end in a browser.
 3. Create Sentry projects (web + api) → set `VITE_SENTRY_DSN` and `SENTRY_DSN`, then send a test error.
-4. Commit Phase 2 and push to GitHub; confirm the CI workflow passes (it spins up a Postgres service for tests).
+4. Commit Phase 4 and push to GitHub; confirm the CI workflow passes (it spins up a Postgres service for tests).
 5. Provision Vercel (root `vercel.json`) and Render (`render.yaml`) projects with env vars; verify health check. Before launch: swap local-disk image storage for an object-storage provider (S3/Cloudinary/R2).
-6. Begin Phase 3 — Menu Management (menus, sections, items, prices, images, availability, variants/add-ons, draft/publish).
+6. Begin Phase 5 — Tables & QR (table creation, unique QR tokens, QR preview/download, table-specific menu URLs; public `/q/{token}` resolution is part of Phase 6).
 
 ## After Foundation
 
 Begin:
 
 ```text
-Phase 3 — Menu Management
+Phase 5 — Tables & QR
 ```
 
 ---
@@ -782,7 +865,7 @@ Important security requirements:
 
 **Status:** Tenant core + restaurant profile implemented; dev + test databases migrated
 
-`prisma/schema.prisma` (PostgreSQL) contains the Phase 1 tenant core and the Phase 2 restaurant profile:
+`prisma/schema.prisma` (PostgreSQL) contains the tenant core, restaurant profile, and the Phase 3 menu domain:
 
 ```text
 User                     (id, clerkId unique, email unique, name)
@@ -792,6 +875,20 @@ Restaurant               (id, name, slug unique, status,
                           logoUrl, primaryColor, googleMapsUrl)
 RestaurantMembership     (userId + restaurantId unique, role, cascade deletes)
 Role enum                OWNER | ADMIN | MANAGER | STAFF
+
+Menu                     (restaurantId, name, status DRAFT/PUBLISHED, isActive,
+                          archivedAt soft-delete, currentRevisionId)
+MenuRevision             (menuId, JSON snapshot, section/item counts, publishedAt)
+MenuSection              (menuId, name, position, isHidden)
+MenuItem                 (sectionId, name, price Decimal(10,2), imageUrl,
+                          isAvailable, dietaryTags[], position)
+MenuItemVariant          (itemId, name, price, isAvailable, position)
+MenuItemAddon            (itemId, name, price, isAvailable, position)
+MenuStatus enum          DRAFT | PUBLISHED
+DietaryTag enum          VEG | NON_VEG | VEGAN | SPICY | GLUTEN_FREE
+
+RestaurantTheme          (restaurantId unique, draftConfig Json,
+                          publishedConfig Json, publishedAt)
 ```
 
 Migrations under `prisma/migrations/`:
@@ -799,20 +896,15 @@ Migrations under `prisma/migrations/`:
 ```text
 20260927181123_phase1_tenant_core
 20261003132614_phase2_restaurant_profile
+20261004073613_phase3_menu_management
+20261008031054_phase4_theme_system
 ```
 
-Applied to the local test database (via `test/global-setup.ts`) and the local dev database (`dynamicmenu_dev`). Onboarding progress is NOT stored — it is derived from the profile fields (see `computeOnboarding` in restaurants.service.ts).
+Applied to the local test database (via `test/global-setup.ts`) and the local dev database (`dynamicmenu_dev`). Onboarding progress is NOT stored — it is derived from profile fields plus published-menu existence (see `computeOnboarding` in restaurants.service.ts). Published menu data lives ONLY in MenuRevision snapshots; the draft tree is the editable working copy. Theme config is presentation-only JSON; theme writes never touch menu tables (integration-tested).
 
 Remaining planned entities (none implemented yet):
 
 ```text
-Menu
-MenuSection
-MenuItem
-MenuItemVariant
-MenuItemAddon
-
-Theme
 Offer
 
 Table
@@ -839,7 +931,7 @@ Do not mark entities as implemented until the actual Prisma schema and database 
 
 # 20. Current API State
 
-**Status:** Phase 1 auth & tenant endpoints + Phase 2 onboarding endpoints implemented
+**Status:** Phases 1–4 implemented (auth/tenancy, onboarding, menus, themes)
 
 Express 5 + TypeScript API at `apps/api` with the Phase 0 foundation (health, error envelope per ARCHITECTURE.md §33, zod validation, helmet/cors/rate-limit, pino, Sentry handler) plus:
 
@@ -849,11 +941,32 @@ GET    /api/v1/restaurants            → caller's memberships only (requireAuth
 POST   /api/v1/restaurants            → create restaurant + OWNER membership (transaction)
 GET    /api/v1/restaurants/:id        → full profile + derived onboarding progress (any member)
 PATCH  /api/v1/restaurants/:id        → edit profile/settings, ADMIN+ (zod-validated, all fields optional)
-POST   /api/v1/restaurants/:id/logo   → multipart logo upload, ADMIN+ (JPEG/PNG/WebP ≤ 2 MB, local-disk storage)
+POST   /api/v1/restaurants/:id/logo   → multipart logo upload, ADMIN+ (JPEG/PNG/WebP ≤ 2 MB)
 GET    /api/v1/restaurants/:id/members→ ADMIN+ membership required
+
+GET    /api/v1/restaurants/:rid/menus                → menu list with counts (MANAGER+)
+POST   /api/v1/restaurants/:rid/menus                → create menu
+GET    /api/v1/restaurants/:rid/menus/:menuId        → draft tree + currentRevision (MANAGER+)
+PATCH  /api/v1/restaurants/:rid/menus/:menuId        → rename/desc/activate
+DELETE /api/v1/restaurants/:rid/menus/:menuId        → archive (soft delete)
+POST   /api/v1/restaurants/:rid/menus/:menuId/publish   → validate + snapshot revision
+POST   /api/v1/restaurants/:rid/menus/:menuId/unpublish → back to DRAFT
+GET    /api/v1/restaurants/:rid/menus/:menuId/revisions → publish history
+POST   .../menus/:menuId/sections                    → create section (appended last)
+PATCH/DELETE .../menus/:menuId/sections/:sectionId   → rename/hide/delete
+PUT    .../menus/:menuId/sections/order              → reorder { sectionIds }
+POST   .../sections/:sectionId/items                 → create item (+variants/add-ons)
+PATCH/DELETE .../sections/:sectionId/items/:itemId   → edit (variants/add-ons replaced wholesale)/delete
+POST   .../items/:itemId/image                       → multipart item photo
+
+GET    /api/v1/restaurants/:rid/theme                → draft/published config + presets (MANAGER+)
+PUT    /api/v1/restaurants/:rid/theme                → save draft config (zod-validated)
+POST   /api/v1/restaurants/:rid/theme/publish        → copy draft onto published slot
+GET    /api/v1/restaurants/:rid/theme/preview        → draft theme + restaurant + published menu snapshot
+POST   /api/v1/restaurants/:rid/theme/image          → cover image upload → { url }
 ```
 
-Request pipeline per RULES.md §6: `requireAuth` (Clerk JWT verification or injected test verifier) → `syncUser` (upsert local User) → `requireMembership(minimumRole)` (tenant lookup server-side; non-member → 404 `RESTAURANT_NOT_FOUND`, insufficient role → 403). Local-dev bypass: `ENABLE_DEV_AUTH=true` trusts `x-dev-clerk-id` / `x-dev-email` headers (never in production, never with a verifier injected).
+Request pipeline per RULES.md §6: `requireAuth` (Clerk JWT verification or injected test verifier) → `syncUser` (upsert local User) → `requireMembership(minimumRole)` (tenant lookup server-side; non-member → 404, insufficient role → 403) → entity loaders walk the item → section → menu → restaurant chain so cross-tenant ids 404. Local-dev bypass: `ENABLE_DEV_AUTH=true` trusts `x-dev-clerk-id` / `x-dev-email` headers (never in production, never with a verifier injected).
 
 Expected domains:
 
@@ -920,6 +1033,15 @@ Status: @sentry/node and @sentry/react wired (activate with SENTRY_DSN / VITE_SE
 
 # 22. Recent Work
 
+2026-10-08 — Completed and verified Phase 4 (Theme System) locally:
+
+* Prisma: `RestaurantTheme` (restaurantId unique, draftConfig/publishedConfig JSON, publishedAt) + migration `20261008031054_phase4_theme_system` on dev + test databases.
+* API: themes module at `/api/v1/restaurants/:restaurantId/theme` (MANAGER+, mergeParams router) — GET state (draft + published + 4 presets), PUT draft (zod-validated: 5 hex colors, font/card/button/background/header enums, decoration booleans, cover URL), POST publish (draft → published slot), GET preview (draft theme + restaurant + latest published menu snapshot), POST image (cover upload).
+* Presets (themes/themes.presets.ts): Modern Minimal, Midnight Luxury, Traditional Indian, Festive — static defaults; new themes are addable without touching the menu system.
+* Web: `/dashboard/themes` — preset gallery with swatches, full customization controls, cover image upload with contrast overlay note, sticky live preview rendering a customer-menu frame from the real published menu snapshot (or sample dishes) via `themeToTokens` CSS custom properties (unit-tested).
+* Menu-data integrity: integration test saves + publishes a theme and asserts menu rows AND the MenuRevision snapshot stay byte-identical; draft edits after theme publish leave the published theme stable.
+* Verified: typecheck, lint, 45 tests, build, HTTP smoke (defaults → save → publish → preview → draft edit → published stable), web `vite preview` on `/dashboard/themes`.
+
 2026-10-03 — Completed and verified Phase 2 (Restaurant Onboarding) locally:
 
 * Prisma: added 13 profile fields to Restaurant (description, cuisine, phone, email, websiteUrl, address line1/2, city, state, postalCode, country, logoUrl, primaryColor, googleMapsUrl) + migration `20261003132614_phase2_restaurant_profile`; migrated both local dev and test databases.
@@ -927,6 +1049,15 @@ Status: @sentry/node and @sentry/react wired (activate with SENTRY_DSN / VITE_SE
 * Web: dashboard split into layout (header/nav) + nested routes; new `/dashboard/settings` page (profile form with section anchors, LogoUploader with empty/uploading/preview/error states, branding color picker; ADMIN+ edit, read-only below); onboarding progress card on the overview with deep links back to settings; apiFetch supports FormData.
 * Fixed a latent test-infra bug: Vitest silently ignored `setupFiles`, so tests were running against the dev database (`dynamicmenu_dev`) instead of the test one; env now loads in `test/global-setup.ts` and `setup.ts` was removed (recorded in Known Issues).
 * Verified: typecheck, lint, 27 tests, build, and a full HTTP smoke of the onboarding flow (create → patch → logo upload → 6/6 progress → uploaded file byte-identical and served).
+
+2026-10-04 — Completed and verified Phase 3 (Menu Management) locally:
+
+* Prisma: Menu, MenuSection, MenuItem, MenuItemVariant, MenuItemAddon, MenuRevision models + MenuStatus/DietaryTag enums; migration `20261004073613_phase3_menu_management` applied to dev + test databases.
+* Draft/publish via snapshot revisions: publishing validates the draft (≥1 section, ≥1 item → else 400 `MENU_INCOMPLETE`) and stores a self-contained JSON snapshot in MenuRevision pointed to by `Menu.currentRevisionId`; the draft tree stays editable afterwards, so draft changes never leak to the live menu (integration-tested and HTTP-smoke-tested).
+* API: menus module under `/api/v1/restaurants/:restaurantId/menus` (MANAGER+), tenant-scoped loaders walking item → section → menu → restaurant (cross-tenant ids → 404), section reorder/hide, item images via a shared `upload-image` middleware (refactored out of the restaurants logo route), availability toggles, dietary tags.
+* Web: `/dashboard/menus` list (create, activate/deactivate, archive with confirm) and `/dashboard/menus/:menuId` builder (section cards with rename/reorder/hide/delete, item editor dialog with variants/add-ons editors and image upload, publish dialog with live-vs-draft change summary); onboarding checklist gained a "First menu published" step (now 7 total).
+* Fixed en route: child routers need `mergeParams: true` to see `:restaurantId` from the mount path; `noUncheckedIndexedAccess` nits in the reorder swap and snapshot assertions.
+* Verified: typecheck, lint, 36 tests, build, HTTP smoke (create menu → publish → draft edit → live snapshot unchanged), web `vite preview` on `/dashboard/menus`.
 
 2026-10-03 — Completed and verified Phase 1 (Authentication & Multi-Tenancy) locally:
 
@@ -1024,7 +1155,7 @@ Restaurant is the primary tenant boundary.
 The immediate next action is:
 
 ```text
-Phase 2 complete locally
+Phase 4 complete locally
         ↓
 Obtain hosted credentials (Neon, Clerk, Sentry)
         ↓
@@ -1032,7 +1163,7 @@ Verify real sign-in + database connectivity in a browser
         ↓
 Commit, push, confirm CI passes
         ↓
-Begin Phase 3 — Menu Management
+Begin Phase 5 — Tables & QR
 ```
 
 ---
@@ -1043,7 +1174,7 @@ Begin Phase 3 — Menu Management
 No blockers recorded.
 ```
 
-Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 3 development.
+Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 5 development.
 ```
 
 ---
@@ -1065,7 +1196,9 @@ Frontend foundation    → Implemented & verified (local)
 Backend foundation     → Implemented & verified (local)
 Phase 1 auth + tenancy → Implemented & verified (local; stub/test verifiers)
 Phase 2 onboarding     → Implemented & verified (local; full HTTP smoke test)
-Database (Prisma)      → Two migrations applied on local dev + test Postgres; awaiting Neon URL
+Phase 3 menu mgmt      → Implemented & verified (local; publish-snapshot model tested)
+Phase 4 themes         → Implemented & verified (local; menu-data integrity tested)
+Database (Prisma)      → Four migrations applied on local dev + test Postgres; awaiting Neon URL
 Authentication (Clerk) → Code complete; awaiting Clerk application keys
 Monitoring (Sentry)    → Wired; awaiting DSN
 Deployment             → Config files ready; not provisioned
@@ -1078,7 +1211,9 @@ Production system      → Not started
 # 28. Last Updated
 
 ```text
-2026-10-04 — Phase 2 (Restaurant Onboarding) implemented and verified locally: 13 restaurant profile fields + migration 20261003132614_phase2_restaurant_profile (dev + test DBs), GET /restaurants/:id with derived 6-step onboarding progress, PATCH profile (all-optional zod validation), multipart logo upload (JPEG/PNG/WebP ≤ 2 MB, ImageStorage interface w/ local-disk provider), dashboard settings page + onboarding progress card, 27 tests passing, full HTTP smoke of the onboarding flow. Fixed test-infra bug where Vitest ignored setupFiles and tests ran against the dev DB. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-08 — Phase 4 (Theme System) implemented and verified locally: RestaurantTheme schema (draft/published config JSON) + migration 20261008031054_phase4_theme_system, 4 built-in presets (Modern Minimal, Midnight Luxury, Traditional Indian, Festive), theme APIs (GET/PUT/publish/preview/image, MANAGER+), /dashboard/themes gallery + editor + live customer-menu preview via unit-tested themeToTokens CSS variables, theme save+publish proven byte-identical to menu rows + MenuRevision snapshots, 45 tests passing. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-04 — Phase 3 (Menu Management) implemented and verified locally: Menu/MenuSection/MenuItem/Variant/Addon/Revision schema + migration 20261004073613_phase3_menu_management, full menu CRUD APIs (MANAGER+, tenant-scoped loaders), section reorder/hide, item images via shared upload middleware, availability + dietary tags, draft/publish via MenuRevision snapshots (draft edits after publish proven invisible to the live snapshot in integration + HTTP smoke tests), /dashboard/menus list + builder UI with publish dialog, onboarding "First menu published" step (7 total). 36 tests passing. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-04 — Phase 2 (Restaurant Onboarding) implemented and verified locally: 13 restaurant profile fields + migration 20261003132614_phase2_restaurant_profile (dev + test DBs), GET /restaurants/:id with derived onboarding progress, PATCH profile (all-optional zod validation), multipart logo upload (JPEG/PNG/WebP ≤ 2 MB, ImageStorage interface w/ local-disk provider), dashboard settings page + onboarding progress card, 27 tests passing, full HTTP smoke of the onboarding flow. Fixed test-infra bug where Vitest ignored setupFiles and tests ran against the dev DB.
 2026-10-03 — Phase 1 (Authentication & Multi-Tenancy) implemented and verified locally: Clerk token verification + user sync, User/Restaurant/RestaurantMembership schema + migration, role-based tenant isolation (404/403/401), protected APIs, AuthGuard-protected dashboard routes, CI workflow given a Postgres test service.
 ```
 

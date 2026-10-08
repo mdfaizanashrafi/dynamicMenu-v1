@@ -85,7 +85,9 @@ const requireItem: RequestHandler = asyncHandler(
 const menuParams = z.object({ menuId: z.string().min(1) });
 
 export function createMenusRouter(requireAuth: RequestHandler): Router {
-  const router = Router();
+  // mergeParams: routes are mounted under /restaurants/:restaurantId/menus,
+  // and the membership middleware needs that parent param.
+  const router = Router({ mergeParams: true });
 
   // Menu management is MANAGER+ per ARCHITECTURE.md §26.
   router.use(requireAuth, requireMembership("MANAGER"));

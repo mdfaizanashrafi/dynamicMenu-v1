@@ -1,11 +1,9 @@
-import type {
-  Menu,
-  MenuItem,
-  MenuSection,
-  RestaurantMembership,
-  User,
-} from "@prisma/client";
+import type { RestaurantMembership, User } from "@prisma/client";
 import type { Role } from "@prisma/client";
+import type { MenuTree } from "../modules/menus/menus.service.js";
+
+type MenuTreeSection = MenuTree["sections"][number];
+type MenuTreeItem = MenuTreeSection["items"][number];
 
 declare global {
   namespace Express {
@@ -14,12 +12,12 @@ declare global {
       user?: User;
       /** Tenant membership for :restaurantId routes, set by requireMembership. */
       membership?: RestaurantMembership;
-      /** Tenant-scoped menu tree, set by the menus module's requireMenu. */
-      menu?: Menu;
-      /** Section of req.menu, set by requireSection. */
-      section?: MenuSection;
-      /** Item of req.section, set by requireItem. */
-      item?: MenuItem;
+      /** Tenant-scoped menu tree (sections → items → variants/addons). */
+      menu?: MenuTree;
+      /** A section belonging to req.menu. */
+      section?: MenuTreeSection;
+      /** An item belonging to req.section. */
+      item?: MenuTreeItem;
     }
   }
 }
