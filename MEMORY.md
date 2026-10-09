@@ -36,13 +36,13 @@ Restaurant customer.
 
 # 2. Current Project Status
 
-**Current Phase:** Phase 4 — Theme System (implemented and verified locally; hosted Clerk account still pending)
+**Current Phase:** Phase 6 — Customer Menu (implemented and verified locally; hosted Clerk account still pending)
 
-**Status:** Phase 4 code complete and verified locally (typecheck/lint/test/build + HTTP smoke of save → publish → draft-isolation). Themes are data-independent presentation layers: theme changes are proven not to touch menu data.
+**Status:** Phase 6 code complete and verified locally (typecheck/lint/test/build + HTTP smoke of QR scan → published menu → theme → categories → items → offers). Customers can browse a mobile-first, theme-rendered menu with sections, items, variants, add-ons, and active offers; no account is required.
 
 **Current Objective:**
 
-Let owners style the customer menu: pick from built-in presets, customize colors/typography/cards/buttons/background/header/decorations/cover image, preview live, and publish — without ever modifying menu content (ARCHITECTURE.md §12).
+Turn the scanned QR code into a complete table-specific menu experience: restaurant branding, published menu snapshot, theme rendering, category navigation, item details with variants/add-ons, and offers.
 
 ### Current State
 
@@ -72,6 +72,14 @@ Phase 3: Menu Management
 Implemented & verified locally
     ↓
 Phase 4: Theme System
+    ↓
+Implemented & verified locally
+    ↓
+Phase 5: Tables & QR
+    ↓
+Implemented & verified locally
+    ↓
+Phase 6: Customer Menu
     ↓
 Implemented & verified locally
 (Hosted services pending credentials)
@@ -131,7 +139,72 @@ Customer Review Flow
 
 # 4. Current Development Phase
 
-## Phase 4 — Theme System
+## Phase 6 — Customer Menu
+
+### Objective
+
+Build the public mobile-first customer experience: scan a QR code, resolve the table, and browse the restaurant's published menu with theme, categories, items, variants, add-ons, and offers (PHASES.md §10).
+
+### Current Completion
+
+```text
+Offer model + migration            [x] Done (Offer: restaurantId, title, description, badgeText, imageUrl, isActive, position; migration 20261009141616_phase6_customer_menu_offers)
+Public menu endpoint               [x] Done (GET /api/v1/public/qr/:token/menu returns {restaurant, table, menu snapshot, theme, active offers}; no auth)
+Published snapshot serving         [x] Done (serves MenuRevision snapshot only; draft edits never leak)
+Theme rendering                    [x] Done (published theme config → CSS custom properties via unit-tested themeToTokens)
+Mobile-first customer UI           [x] Done (/q/:token: loading/error/empty states, restaurant header, sticky category nav, offers banner, sectioned food cards, item detail dialog with variants/add-ons)
+Variants & add-ons                 [x] Done (item detail supports selecting a variant and toggling add-ons; live price calculation)
+Availability                       [x] Done (unavailable items are visually disabled and cannot be added)
+Dietary tags                       [x] Done (badges rendered on food cards and detail dialog)
+Tenant isolation                   [x] Done (token → restaurant; another restaurant's token cannot access this menu)
+```
+
+### Key Design Decision
+
+The customer menu is served from a single public endpoint keyed by the QR token. It returns the published `MenuRevision` snapshot (not the draft tree) plus the published theme config and active offers. Theme tokens are applied as CSS custom properties on the page container, so the same menu data renders completely differently per restaurant without touching menu rows. Cart/order persistence is intentionally out of scope — it belongs to Phase 7.
+
+### Verification (2026-10-09, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (57 tests: 43 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/customer-menu.test.ts`, 5 tests): published menu snapshot + theme + active offers, default theme fallback, no published menu returns `menu: null`, invalid/inactive QR → 404 `INVALID_QR`, cross-restaurant token isolation.
+HTTP smoke: create restaurant → create menu → section → item with variants/add-ons → publish → create table → `GET /public/qr/:token/menu` returns the full payload; web `/q/:token` serves the built app.
+
+---
+
+## Phase 5 — Tables & QR (completed)
+
+### Objective
+
+Create restaurant tables, generate unique QR codes, and build the public resolution layer that maps a scanned QR token to a restaurant + table (PHASES.md §9).
+
+### Current Completion
+
+```text
+RestaurantTable model + migration  [x] Done (RestaurantTable: restaurantId, label, qrToken @unique, isActive; migration 20261009101341_phase5_tables_qr)
+Unique QR tokens                   [x] Done (crypto.randomBytes(18).toString("base64url"); collision retry; internal IDs never exposed)
+Tables API                         [x] Done (CRUD + PATCH {rotateToken: true} under /restaurants/:rid/tables; MANAGER+; tenant-scoped loaders)
+Public QR resolution               [x] Done (GET /api/v1/public/qr/:token, no auth, returns {restaurant, table} or 404 INVALID_QR)
+QR code generation                 [x] Done (qrcode library; QrImage component; QrViewDialog preview + PNG download)
+Dashboard management UI            [x] Done (/dashboard/tables: add, inline rename, activate/deactivate, rotate token, delete, copy menu link)
+Customer landing page              [x] Done (/q/:token resolves token and shows restaurant/table or INVALID_QR error)
+Onboarding integration             [x] Done ("Active table" step; total now 8)
+Tenant security tests              [x] Done (cross-restaurant table access blocked; rotated/deactivated/inactive tokens invalidated)
+```
+
+### Key Design Decision
+
+QR URLs are `/q/{qrToken}` where `qrToken` is a 24-byte URL-safe base64 string stored uniquely on `RestaurantTable`. Rotating or deleting a table changes/removed the token, so old printed codes stop resolving with a clear `INVALID_QR` message. The public resolver is unauthenticated and rate-limited; it returns only display fields (name, slug, logoUrl, table label), never internal IDs or business state.
+
+### Verification (2026-10-09, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (52 tests: 38 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/tables.test.ts`, 6 tests): unique tokens, public resolution, invalid/rotated/deactivated QR handling, tenant scoping, role boundaries.
+Web tests: `table-label` unit tests (suggested labels for first/empty tables).
+HTTP smoke: create restaurant → create table → public QR resolves → list tables → rotate token → old QR 404 `INVALID_QR`; web `/q/:token` and `/dashboard/tables` routes serve via built app.
+
+---
+
+## Phase 4 — Theme System (completed)
 
 ### Objective
 
@@ -307,6 +380,8 @@ CI/CD                   [x] GitHub Actions workflow created; runs on push to Git
 [x] Phase 3 menu APIs — full CRUD, section reorder/hide, item images, availability, dietary tags, publish/unpublish with snapshot revisions (draft edits never leak to the live snapshot)
 [x] Phase 3 builder UI — /dashboard/menus + /dashboard/menus/:menuId (section cards, item editor dialog with variants/add-ons, publish dialog with change summary)
 [x] Phase 4 theme system — RestaurantTheme (draft/published config JSON) + migration phase4_theme_system; 4 built-in presets; theme APIs with publish + preview; /dashboard/themes gallery + editor + live preview; menu-data integrity tested
+[x] Phase 5 tables & QR — RestaurantTable schema + migration 20261009101341_phase5_tables_qr; unique URL-safe qrToken; tables CRUD + rotate API; public /api/v1/public/qr/:token resolution; /dashboard/tables management + QR preview/download; /q/:token customer landing page; onboarding "Active table" step; tenant-security tested
+[x] Phase 6 customer menu — Offer model + migration 20261009141616_phase6_customer_menu_offers; public `/api/v1/public/qr/:token/menu` endpoint; published MenuRevision snapshot + published theme + active offers served to mobile-first /q/:token page; category navigation, item cards, item detail dialog with variants/add-ons; loading/error/empty states
 [ ] Database setup — Prisma configured; local dev + test Postgres verified; awaiting Neon DATABASE_URL for hosted environments
 [ ] Clerk authentication — code complete; awaiting Clerk application keys to verify real sign-in
 [ ] Sentry monitoring — SDK wired; awaiting DSN
@@ -314,6 +389,14 @@ CI/CD                   [x] GitHub Actions workflow created; runs on push to Git
 [ ] Render deployment — render.yaml ready; not provisioned
 [ ] CI/CD — workflow updated with Postgres service for tests; not yet run on GitHub
 ```
+
+Verification evidence (2026-10-09, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (57 tests: 43 API + 14 web), `npm run build` all pass.
+HTTP smoke: create restaurant → create menu → section → item (variants/add-ons) → publish → create table → `GET /api/v1/public/qr/:token/menu` returns restaurant + table + published snapshot + theme + offers; web `/q/:token` serves the built customer menu app.
+
+Verification evidence (2026-10-09, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (52 tests: 38 API + 14 web), `npm run build` all pass.
+HTTP smoke: create restaurant → create table → public QR resolves → list tables → rotate token → old QR 404 `INVALID_QR`; web `/q/:token` and `/dashboard/tables` routes serve via built app.
 
 Verification evidence (2026-10-08, local):
 `npm run typecheck`, `npm run lint`, `npm run test` (45 tests), `npm run build` all pass.
@@ -717,6 +800,15 @@ Affected Components: restaurants logo endpoint, app.ts static serving, .env.exam
 Note: Swap the provider (implement ImageStorage) before production; Render's filesystem is ephemeral.
 ```
 
+```text
+Date: 2026-10-09
+Change: Production domain selected for QR links and deployment config
+Previous: No production domain configured; WEB_BASE_URL default was localhost only.
+New: Project domain is `dynamicmenu.store`. `.env.example` now documents `WEB_BASE_URL=https://dynamicmenu.store` for production and `render.yaml` sets `WEB_BASE_URL=https://dynamicmenu.store` and `CORS_ORIGIN=https://dynamicmenu.store` on the Render service. API_BASE_URL remains user-provided per deployment.
+Reason: Customer-facing QR codes and CORS need a stable public domain before Phase 6 customer-menu work.
+Affected Components: .env.example, render.yaml, QR menuUrl generation (uses WEB_BASE_URL).
+```
+
 Record actual architectural changes here.
 
 Example:
@@ -863,9 +955,9 @@ Important security requirements:
 
 # 19. Current Database State
 
-**Status:** Tenant core + restaurant profile implemented; dev + test databases migrated
+**Status:** Tenant core + restaurant profile + menu + themes + tables + offers implemented; dev + test databases migrated
 
-`prisma/schema.prisma` (PostgreSQL) contains the tenant core, restaurant profile, and the Phase 3 menu domain:
+`prisma/schema.prisma` (PostgreSQL) contains the tenant core, restaurant profile, Phase 3 menu domain, Phase 4 theme config, Phase 5 tables, and Phase 6 offers:
 
 ```text
 User                     (id, clerkId unique, email unique, name)
@@ -889,6 +981,9 @@ DietaryTag enum          VEG | NON_VEG | VEGAN | SPICY | GLUTEN_FREE
 
 RestaurantTheme          (restaurantId unique, draftConfig Json,
                           publishedConfig Json, publishedAt)
+RestaurantTable          (restaurantId, label, qrToken unique, isActive)
+Offer                    (restaurantId, title, description, badgeText,
+                          imageUrl, isActive, position)
 ```
 
 Migrations under `prisma/migrations/`:
@@ -898,18 +993,15 @@ Migrations under `prisma/migrations/`:
 20261003132614_phase2_restaurant_profile
 20261004073613_phase3_menu_management
 20261008031054_phase4_theme_system
+20261009101341_phase5_tables_qr
+20261009141616_phase6_customer_menu_offers
 ```
 
-Applied to the local test database (via `test/global-setup.ts`) and the local dev database (`dynamicmenu_dev`). Onboarding progress is NOT stored — it is derived from profile fields plus published-menu existence (see `computeOnboarding` in restaurants.service.ts). Published menu data lives ONLY in MenuRevision snapshots; the draft tree is the editable working copy. Theme config is presentation-only JSON; theme writes never touch menu tables (integration-tested).
+Applied to the local test database (via `test/global-setup.ts`) and the local dev database (`dynamicmenu_dev`). Onboarding progress is NOT stored — it is derived from profile fields plus published-menu existence plus at least one active table (see `computeOnboarding` in restaurants.service.ts). Published menu data lives ONLY in MenuRevision snapshots; the draft tree is the editable working copy. Theme config is presentation-only JSON; theme writes never touch menu tables (integration-tested). QR tokens live on `RestaurantTable`; there is no separate `QRCode` entity.
 
 Remaining planned entities (none implemented yet):
 
 ```text
-Offer
-
-Table
-QRCode
-
 Order
 OrderItem
 
@@ -931,7 +1023,7 @@ Do not mark entities as implemented until the actual Prisma schema and database 
 
 # 20. Current API State
 
-**Status:** Phases 1–4 implemented (auth/tenancy, onboarding, menus, themes)
+**Status:** Phases 1–6 implemented (auth/tenancy, onboarding, menus, themes, tables & QR, customer menu)
 
 Express 5 + TypeScript API at `apps/api` with the Phase 0 foundation (health, error envelope per ARCHITECTURE.md §33, zod validation, helmet/cors/rate-limit, pino, Sentry handler) plus:
 
@@ -964,6 +1056,14 @@ PUT    /api/v1/restaurants/:rid/theme                → save draft config (zod-
 POST   /api/v1/restaurants/:rid/theme/publish        → copy draft onto published slot
 GET    /api/v1/restaurants/:rid/theme/preview        → draft theme + restaurant + published menu snapshot
 POST   /api/v1/restaurants/:rid/theme/image          → cover image upload → { url }
+
+GET    /api/v1/restaurants/:rid/tables               → list tables (MANAGER+)
+POST   /api/v1/restaurants/:rid/tables               → create table with unique QR token (MANAGER+)
+PATCH  /api/v1/restaurants/:rid/tables/:tableId      → update label / activate / deactivate / rotate QR token (MANAGER+)
+DELETE /api/v1/restaurants/:rid/tables/:tableId      → delete table (MANAGER+)
+
+GET    /api/v1/public/qr/:token                     → resolve QR token → { restaurant, table } (public, rate-limited, 404 INVALID_QR if missing/inactive)
+GET    /api/v1/public/qr/:token/menu               → full customer payload: restaurant + table + published menu snapshot + published theme + active offers (public, rate-limited)
 ```
 
 Request pipeline per RULES.md §6: `requireAuth` (Clerk JWT verification or injected test verifier) → `syncUser` (upsert local User) → `requireMembership(minimumRole)` (tenant lookup server-side; non-member → 404, insufficient role → 403) → entity loaders walk the item → section → menu → restaurant chain so cross-tenant ids 404. Local-dev bypass: `ENABLE_DEV_AUTH=true` trusts `x-dev-clerk-id` / `x-dev-email` headers (never in production, never with a verifier injected).
@@ -1032,6 +1132,23 @@ Status: @sentry/node and @sentry/react wired (activate with SENTRY_DSN / VITE_SE
 ---
 
 # 22. Recent Work
+
+2026-10-09 — Completed and verified Phase 6 (Customer Menu) locally:
+
+* Prisma: `Offer` model (`restaurantId`, `title`, `description`, `badgeText`, `imageUrl`, `isActive`, `position`) + migration `20261009141616_phase6_customer_menu_offers` on dev + test databases.
+* API: public `/api/v1/public/qr/:token/menu` endpoint (no auth, rate-limited) resolves the QR token and returns `{restaurant, table, menu, theme, offers}`; menu is the published `MenuRevision` snapshot (draft never served), theme falls back to the default preset, and only active offers are included.
+* Web: rebuilt `/q/:token` into a mobile-first customer menu with loading, error, and empty states; restaurant header with logo/name/table; horizontally scrollable sticky category navigation; offer banner cards; sectioned food cards with image, price, dietary tags, and availability; item detail dialog with variants (radio), add-ons (checkbox), live price calculation, and add-to-order button. Theme tokens from `themeToTokens` drive all colors, fonts, radii, and backgrounds.
+* Tenant isolation: API tests verify that a QR token only exposes its own restaurant's published menu and that internal IDs do not leak in the public payload.
+* Verified: typecheck, lint, 57 tests (43 API + 14 web), build, HTTP smoke (create menu → publish → create table → `/public/qr/:token/menu` returns full payload), web `vite preview` on `/q/:token`.
+
+2026-10-09 — Completed and verified Phase 5 (Tables & QR) locally:
+
+* Prisma: `RestaurantTable` (`restaurantId`, `label`, `qrToken` unique, `isActive`) + migration `20261009101341_phase5_tables_qr` on dev + test databases.
+* API: tables module at `/api/v1/restaurants/:restaurantId/tables` (MANAGER+, mergeParams router) — list, create with unique URL-safe `qrToken`, update label/activation/rotate token, delete; public `/api/v1/public/qr/:token` resolver (unauthenticated, rate-limited) returns `{restaurant, table}` or `INVALID_QR` 404 for missing/inactive/rotated/deleted tokens.
+* Web: `/dashboard/tables` — add table, inline rename, activate/deactivate, rotate QR token with confirm, delete, copy menu link, QR preview dialog with PNG download (`qrcode` library); `/q/:token` customer landing page resolves token and shows restaurant/table or a helpful invalid-QR error.
+* Onboarding: added an 8th step "Active table" (≥1 active `RestaurantTable`); `computeOnboarding` and tests updated.
+* Tenant security: API tests verify unique tokens, public resolution, invalid/rotated/deactivated QR handling, tenant scoping, and role boundaries; cross-restaurant table access blocked.
+* Verified: typecheck, lint, 52 tests (38 API + 14 web), build, HTTP smoke (create table → resolve QR → rotate → old QR 404), web `vite preview` on `/q/:token` and `/dashboard/tables`.
 
 2026-10-08 — Completed and verified Phase 4 (Theme System) locally:
 
@@ -1155,7 +1272,7 @@ Restaurant is the primary tenant boundary.
 The immediate next action is:
 
 ```text
-Phase 4 complete locally
+Phase 6 complete locally
         ↓
 Obtain hosted credentials (Neon, Clerk, Sentry)
         ↓
@@ -1163,7 +1280,7 @@ Verify real sign-in + database connectivity in a browser
         ↓
 Commit, push, confirm CI passes
         ↓
-Begin Phase 5 — Tables & QR
+Begin Phase 7 — Cart & Ordering
 ```
 
 ---
@@ -1174,7 +1291,7 @@ Begin Phase 5 — Tables & QR
 No blockers recorded.
 ```
 
-Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 5 development.
+Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 7 development.
 ```
 
 ---
@@ -1198,10 +1315,13 @@ Phase 1 auth + tenancy → Implemented & verified (local; stub/test verifiers)
 Phase 2 onboarding     → Implemented & verified (local; full HTTP smoke test)
 Phase 3 menu mgmt      → Implemented & verified (local; publish-snapshot model tested)
 Phase 4 themes         → Implemented & verified (local; menu-data integrity tested)
-Database (Prisma)      → Four migrations applied on local dev + test Postgres; awaiting Neon URL
+Phase 5 tables & QR    → Implemented & verified (local; QR token security tested)
+Phase 6 customer menu  → Implemented & verified (local; published-snapshot + theme rendering tested)
+Database (Prisma)      → Six migrations applied on local dev + test Postgres; awaiting Neon URL
 Authentication (Clerk) → Code complete; awaiting Clerk application keys
 Monitoring (Sentry)    → Wired; awaiting DSN
 Deployment             → Config files ready; not provisioned
+Project domain         → dynamicmenu.store (production web base URL; env + render.yaml updated)
 Image storage          → Local-disk provider behind ImageStorage interface; swap before production
 Production system      → Not started
 ```
@@ -1211,6 +1331,8 @@ Production system      → Not started
 # 28. Last Updated
 
 ```text
+2026-10-09 — Phase 6 (Customer Menu) implemented and verified locally: Offer model (restaurantId, title, description, badgeText, imageUrl, isActive, position) + migration 20261009141616_phase6_customer_menu_offers, public `/api/v1/public/qr/:token/menu` endpoint returning restaurant + table + published MenuRevision snapshot + published theme + active offers, mobile-first `/q/:token` customer menu with loading/error/empty states, sticky category nav, offer banners, food cards, and item detail dialog with variants/add-ons/price calculation, theme rendering via unit-tested `themeToTokens`, tenant-isolation and no-ID-leak tests, 57 tests passing (43 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-09 — Phase 5 (Tables & QR) implemented and verified locally: RestaurantTable schema (restaurantId, label, qrToken unique, isActive) + migration 20261009101341_phase5_tables_qr, tables CRUD + rotate-token API (MANAGER+), public `/api/v1/public/qr/:token` resolver (unauthenticated, 404 `INVALID_QR` for missing/inactive/rotated tokens), `/dashboard/tables` management UI with QR preview/download, `/q/:token` customer landing page, onboarding "Active table" step (8 total), tenant-security and QR-invalidation tests, 52 tests passing (38 API + 14 web). Production domain set to dynamicmenu.store; .env.example and render.yaml updated. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
 2026-10-08 — Phase 4 (Theme System) implemented and verified locally: RestaurantTheme schema (draft/published config JSON) + migration 20261008031054_phase4_theme_system, 4 built-in presets (Modern Minimal, Midnight Luxury, Traditional Indian, Festive), theme APIs (GET/PUT/publish/preview/image, MANAGER+), /dashboard/themes gallery + editor + live customer-menu preview via unit-tested themeToTokens CSS variables, theme save+publish proven byte-identical to menu rows + MenuRevision snapshots, 45 tests passing. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
 2026-10-04 — Phase 3 (Menu Management) implemented and verified locally: Menu/MenuSection/MenuItem/Variant/Addon/Revision schema + migration 20261004073613_phase3_menu_management, full menu CRUD APIs (MANAGER+, tenant-scoped loaders), section reorder/hide, item images via shared upload middleware, availability + dietary tags, draft/publish via MenuRevision snapshots (draft edits after publish proven invisible to the live snapshot in integration + HTTP smoke tests), /dashboard/menus list + builder UI with publish dialog, onboarding "First menu published" step (7 total). 36 tests passing. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
 2026-10-04 — Phase 2 (Restaurant Onboarding) implemented and verified locally: 13 restaurant profile fields + migration 20261003132614_phase2_restaurant_profile (dev + test DBs), GET /restaurants/:id with derived onboarding progress, PATCH profile (all-optional zod validation), multipart logo upload (JPEG/PNG/WebP ≤ 2 MB, ImageStorage interface w/ local-disk provider), dashboard settings page + onboarding progress card, 27 tests passing, full HTTP smoke of the onboarding flow. Fixed test-infra bug where Vitest ignored setupFiles and tests ran against the dev DB.

@@ -35,10 +35,11 @@ describe("onboarding progress (unit)", () => {
   it("derives steps from profile fields", () => {
     const base = { name: "R" } as Restaurant;
     const empty = computeOnboarding(base);
-    expect(empty.total).toBe(7);
+    expect(empty.total).toBe(8);
     expect(empty.completedCount).toBe(1); // identity only
     expect(empty.steps.find((s) => s.key === "logo")?.completed).toBe(false);
     expect(empty.steps.find((s) => s.key === "menu")?.completed).toBe(false);
+    expect(empty.steps.find((s) => s.key === "tables")?.completed).toBe(false);
 
     const full = computeOnboarding(
       {
@@ -51,7 +52,8 @@ describe("onboarding progress (unit)", () => {
         logoUrl: "http://localhost:4000/uploads/logo.png",
         googleMapsUrl: "https://maps.app.goo.gl/abc",
       } as Restaurant,
-      true // published menu exists
+      true, // published menu exists
+      true // active table exists
     );
     expect(full.completedCount).toBe(full.total);
   });
@@ -78,9 +80,9 @@ describe("restaurant onboarding (integration)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe("Onboard Test");
-    expect(res.body.data.onboarding.total).toBe(7);
+    expect(res.body.data.onboarding.total).toBe(8);
     expect(res.body.data.onboarding.completedCount).toBe(1);
-    expect(res.body.data.onboarding.steps).toHaveLength(7);
+    expect(res.body.data.onboarding.steps).toHaveLength(8);
   });
 
   it("updates the profile and reflects progress", async () => {

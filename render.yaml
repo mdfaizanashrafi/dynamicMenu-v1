@@ -14,6 +14,12 @@ services:
         value: production
       - key: API_PORT
         value: 4000
+      - key: API_BASE_URL
+        sync: false
+      - key: WEB_BASE_URL
+        value: https://dynamicmenu.store
+      - key: CORS_ORIGIN
+        value: https://dynamicmenu.store
       - key: DATABASE_URL
         sync: false
       - key: CLERK_SECRET_KEY

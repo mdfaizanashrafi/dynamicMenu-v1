@@ -13,6 +13,7 @@ import { RestaurantSettingsPage } from "../features/restaurant/restaurant-settin
 import { MenusPage } from "../features/menus/menus-page";
 import { MenuBuilderPage } from "../features/menus/menu-builder-page";
 import { ThemesPage } from "../features/themes/themes-page";
+import { TablesPage } from "../features/tables/tables-page";
 import { CustomerMenuPage } from "../features/customer-menu/customer-menu-page";
 import { NotFoundPage } from "../features/not-found/not-found-page";
 
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
               { path: "menus", element: <MenusPage /> },
               { path: "menus/:menuId", element: <MenuBuilderPage /> },
               { path: "themes", element: <ThemesPage /> },
+              { path: "tables", element: <TablesPage /> },
             ],
           },
         ],

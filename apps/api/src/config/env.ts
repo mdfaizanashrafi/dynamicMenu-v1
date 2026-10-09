@@ -6,6 +6,7 @@ const envSchema = z.object({
     .default("development"),
   API_PORT: z.coerce.number().int().positive().default(4000),
   API_BASE_URL: z.string().url().default("http://localhost:4000"),
+  WEB_BASE_URL: z.string().url().default("http://localhost:5173"),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
   DATABASE_URL: z.string().optional(),
   CLERK_SECRET_KEY: z.string().optional(),

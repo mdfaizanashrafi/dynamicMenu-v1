@@ -44,7 +44,9 @@ export function OnboardingCard({ onboarding }: Props) {
           const target =
             step.key === "menu"
               ? "/dashboard/menus"
-              : `/dashboard/settings#${step.key}`;
+              : step.key === "tables"
+                ? "/dashboard/tables"
+                : `/dashboard/settings#${step.key}`;
           return (
             <li key={step.key} className="flex items-center gap-2 text-sm">
               <span

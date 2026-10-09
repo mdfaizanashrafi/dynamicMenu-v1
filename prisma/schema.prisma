@@ -76,6 +76,8 @@ model Restaurant {
   memberships RestaurantMembership[]
   menus       Menu[]
   theme       RestaurantTheme?
+  tables      RestaurantTable[]
+  offers      Offer[]
 
   @@index([slug])
   @@index([status])
@@ -204,6 +206,46 @@ model RestaurantTheme {
   updatedAt      DateTime  @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+// ── Phase 5 — Tables & QR (PHASES.md §9) ─────────────────────────────────
+// The QR token (not internal ids) is the public identity of a table; it
+// resolves table → restaurant for customer scans (ARCHITECTURE.md §9/§16).
+
+model RestaurantTable {
+  id           String   @id @default(cuid())
+  restaurantId String
+  label        String
+  qrToken      String   @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+// ── Phase 6 — Customer menu / offers (PHASES.md §10) ───────────────────────
+// Lightweight promotional offers displayed on the customer menu. Complex
+// discount rules and scheduling belong to a later phase; this model only
+// supports simple active/inactive banners (title, description, badge, image).
+
+model Offer {
+  id          String   @id @default(cuid())
+  restaurantId String
+  title       String
+  description String?
+  badgeText   String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, isActive, position])
 }
 
 model RestaurantMembership {

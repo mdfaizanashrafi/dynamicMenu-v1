@@ -13,7 +13,7 @@ const NAV_ITEMS: { label: string; to?: string }[] = [
   { label: "Orders" },
   { label: "Offers" },
   { label: "Themes", to: "/dashboard/themes" },
-  { label: "QR & Tables" },
+  { label: "QR & Tables", to: "/dashboard/tables" },
   { label: "Customers" },
   { label: "Analytics" },
   { label: "Settings", to: "/dashboard/settings" },

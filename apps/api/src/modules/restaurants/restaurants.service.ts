@@ -93,7 +93,7 @@ export async function listMembers(restaurantId: string) {
 
 /** Full profile plus onboarding progress for the dashboard. */
 export async function getRestaurantDetail(restaurantId: string) {
-  const [restaurant, publishedMenu] = await Promise.all([
+  const [restaurant, publishedMenu, activeTable] = await Promise.all([
     prisma.restaurant.findUnique({ where: { id: restaurantId } }),
     prisma.menu.findFirst({
       where: {
@@ -102,6 +102,10 @@ export async function getRestaurantDetail(restaurantId: string) {
         status: "PUBLISHED",
         isActive: true,
       },
+      select: { id: true },
+    }),
+    prisma.restaurantTable.findFirst({
+      where: { restaurantId, isActive: true },
       select: { id: true },
     }),
   ]);
@@ -114,7 +118,11 @@ export async function getRestaurantDetail(restaurantId: string) {
   }
   return {
     ...restaurant,
-    onboarding: computeOnboarding(restaurant, !!publishedMenu),
+    onboarding: computeOnboarding(
+      restaurant,
+      !!publishedMenu,
+      !!activeTable
+    ),
   };
 }
 
@@ -137,7 +145,8 @@ export interface OnboardingProgress {
  */
 export function computeOnboarding(
   r: Restaurant,
-  hasPublishedMenu = false
+  hasPublishedMenu = false,
+  hasActiveTable = false
 ): OnboardingProgress {
   const steps: OnboardingStep[] = [
     { key: "identity", label: "Restaurant name", completed: !!r.name },
@@ -162,6 +171,11 @@ export function computeOnboarding(
       key: "menu",
       label: "First menu published",
       completed: hasPublishedMenu,
+    },
+    {
+      key: "tables",
+      label: "Tables with QR codes",
+      completed: hasActiveTable,
     },
   ];
   return {
