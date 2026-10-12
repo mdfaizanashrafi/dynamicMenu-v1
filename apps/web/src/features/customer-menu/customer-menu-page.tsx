@@ -5,11 +5,14 @@ import type { CustomerMenuData } from "./customer-menu.types";
 import { CustomerMenuShell } from "./customer-menu-shell";
 import { CustomerMenuError } from "./customer-menu-error";
 import { CustomerMenuLoading } from "./customer-menu-loading";
+import { CartProvider } from "./cart-context";
+import { CartButton } from "./cart-button";
+import { CartDrawer } from "./cart-drawer";
 
 /**
  * Customer landing page for scanned QR codes (/q/:token).
  * Phase 6 loads the published menu, theme, and active offers for the
- * resolved restaurant + table (PHASES.md §10, DESIGN.md §14).
+ * resolved restaurant + table; Phase 7 adds cart + ordering.
  */
 export function CustomerMenuPage() {
   const { token } = useParams<{ token: string }>();
@@ -18,6 +21,7 @@ export function CustomerMenuPage() {
     | { kind: "error"; message: string }
     | { kind: "resolved"; data: CustomerMenuData }
   >({ kind: "loading" });
+  const [cartOpen, setCartOpen] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -57,5 +61,22 @@ export function CustomerMenuPage() {
     return <CustomerMenuError message={state.message} />;
   }
 
-  return <CustomerMenuShell data={state.data} />;
+  // SEO: put the restaurant name in the tab title (Phase 17).
+  document.title = `${state.data.restaurant.name} — DynamicMenu`;
+
+  return (
+    <CartProvider>
+      <CustomerMenuShell data={state.data} />
+      {token && (
+        <>
+          <CartButton onOpen={() => setCartOpen(true)} />
+          <CartDrawer
+            token={token}
+            open={cartOpen}
+            onOpenChange={setCartOpen}
+          />
+        </>
+      )}
+    </CartProvider>
+  );
 }

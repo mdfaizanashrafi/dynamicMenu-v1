@@ -2,14 +2,17 @@ import { useState } from "react";
 import type { CustomerMenuSection, CustomerMenuItem } from "./customer-menu.types";
 import { CustomerItemCard } from "./customer-item-card";
 import { CustomerItemDialog } from "./customer-item-dialog";
+import { useCart } from "./cart-context";
 
 interface Props {
   sections: CustomerMenuSection[];
   sectionRefs: React.MutableRefObject<Record<string, HTMLElement | null>>;
+  layoutStyle: "list" | "grid";
 }
 
-export function CustomerMenuSections({ sections, sectionRefs }: Props) {
+export function CustomerMenuSections({ sections, sectionRefs, layoutStyle }: Props) {
   const [selectedItem, setSelectedItem] = useState<CustomerMenuItem | null>(null);
+  const { addItem } = useCart();
 
   return (
     <div className="space-y-8">
@@ -30,7 +33,11 @@ export function CustomerMenuSections({ sections, sectionRefs }: Props) {
           {section.description && (
             <p className="mb-3 text-sm opacity-70">{section.description}</p>
           )}
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul
+            className={
+              layoutStyle === "grid" ? "grid grid-cols-2 gap-3" : "grid gap-3 sm:grid-cols-2"
+            }
+          >
             {section.items.map((item) => (
               <li key={item.id}>
                 <CustomerItemCard item={item} onSelect={() => setSelectedItem(item)} />
@@ -46,6 +53,9 @@ export function CustomerMenuSections({ sections, sectionRefs }: Props) {
         onOpenChange={(open) => {
           if (!open) setSelectedItem(null);
         }}
+        onAddToCart={(item, variant, addons, quantity) =>
+          addItem(item, variant, addons, quantity)
+        }
       />
     </div>
   );

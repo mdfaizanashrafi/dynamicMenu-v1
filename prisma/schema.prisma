@@ -54,6 +54,8 @@ model Restaurant {
   id           String           @id @default(cuid())
   name         String
   slug         String           @unique
+  // Phase 15 — multi-branch: a branch is a child restaurant (one level deep).
+  parentId     String?
   status       RestaurantStatus @default(ACTIVE)
   // Phase 2 — onboarding profile (all optional; see PHASES.md §6)
   description   String?
@@ -78,9 +80,17 @@ model Restaurant {
   theme       RestaurantTheme?
   tables      RestaurantTable[]
   offers      Offer[]
+  orders      Order[]
+  reviews     Review[]
+  customers   Customer[]
+  loyaltyAccounts LoyaltyAccount[]
+  subscription Subscription?
+  parent      Restaurant?  @relation("RestaurantBranches", fields: [parentId], references: [id], onDelete: SetNull)
+  branches    Restaurant[] @relation("RestaurantBranches")
 
   @@index([slug])
   @@index([status])
+  @@index([parentId])
 }
 
 // ── Phase 3 — Menu management (PHASES.md §7) ─────────────────────────────
@@ -222,6 +232,7 @@ model RestaurantTable {
   updatedAt    DateTime @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
 
   @@index([restaurantId])
 }
@@ -231,21 +242,65 @@ model RestaurantTable {
 // discount rules and scheduling belong to a later phase; this model only
 // supports simple active/inactive banners (title, description, badge, image).
 
+// ── Phase 13 — Offers & campaigns (PHASES.md §17) ──────────────────────────
+// An offer is a promotional campaign: a banner shown on the customer menu,
+// optionally with an order discount (percent or flat) and a schedule window.
+// Discounts are applied automatically at order creation, server-side.
+
+enum OfferDiscountType {
+  PERCENT
+  FLAT
+}
+
 model Offer {
-  id          String   @id @default(cuid())
-  restaurantId String
-  title       String
-  description String?
-  badgeText   String?
-  imageUrl    String?
-  isActive    Boolean  @default(true)
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String             @id @default(cuid())
+  restaurantId  String
+  title         String
+  description   String?
+  badgeText     String?
+  imageUrl      String?
+  discountType  OfferDiscountType?
+  discountValue Decimal?           @db.Decimal(10, 2)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean            @default(true)
+  position      Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
 
   @@index([restaurantId, isActive, position])
+}
+
+// ── Phase 14 — SaaS subscriptions (PHASES.md §18, ARCHITECTURE.md §45) ─────
+// Restaurant → Subscription → Plan → Feature Entitlements. Plans are a
+// static catalog (modules/billing/plans.ts); billing provider integration is
+// intentionally absent until project requirements define it — plan changes
+// are self-serve account management, not payment events.
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+}
+
+model Subscription {
+  id           String             @id @default(cuid())
+  restaurantId String             @unique
+  plan         Plan               @default(FREE)
+  status       SubscriptionStatus @default(ACTIVE)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 
 model RestaurantMembership {
@@ -262,4 +317,165 @@ model RestaurantMembership {
   @@unique([userId, restaurantId])
   @@index([restaurantId])
   @@index([userId, restaurantId])
+}
+
+// ── Phase 7 — Cart & ordering (PHASES.md §11) ──────────────────────────────
+// Orders are state machines created from a scanned QR token. Prices are
+// recomputed server-side from the published menu snapshot; the frontend only
+// sends item/variant/addon ids and quantities.
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  SERVED
+  PAID
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  restaurantId  String
+  tableId       String
+  customerId    String?
+  status        OrderStatus @default(PENDING)
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
+  notes         String?
+  subtotal      Decimal     @db.Decimal(10, 2)
+  discount      Decimal     @db.Decimal(10, 2) @default(0)
+  total         Decimal     @db.Decimal(10, 2)
+  offerId       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      RestaurantTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  customer   Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  offer      Offer?          @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  items      OrderItem[]
+  review     Review?
+
+  @@index([restaurantId, status, createdAt])
+  @@index([tableId, createdAt])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  menuItemId  String
+  name        String
+  quantity    Int
+  basePrice   Decimal @db.Decimal(10, 2)
+  variantId   String?
+  variantName String?
+  variantPrice Decimal? @db.Decimal(10, 2)
+  subtotal    Decimal @db.Decimal(10, 2)
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  addons  OrderItemAddon[]
+
+  @@index([orderId])
+}
+
+model OrderItemAddon {
+  id      String @id @default(cuid())
+  orderItemId String
+  addonId String
+  name    String
+  price   Decimal @db.Decimal(10, 2)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
+}
+
+// ── Phase 10 — Customer management (PHASES.md §14) ─────────────────────────
+// Customers are restaurant-scoped (never global). Identity within a
+// restaurant is the customer's phone number; profiles are created/updated
+// automatically when an order is placed.
+
+model Customer {
+  id           String   @id @default(cuid())
+  restaurantId String
+  name         String
+  phone        String
+  email        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+  loyalty    LoyaltyAccount?
+
+  @@unique([restaurantId, phone])
+  @@index([restaurantId])
+}
+
+// ── Phase 12 — Loyalty Program (PHASES.md §16) ─────────────────────────────
+// Customers earn points on paid orders (1 point per 100 spent, floored) and
+// redeem them at the counter. All balances are restaurant-scoped.
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+  ADJUST
+}
+
+model LoyaltyAccount {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  customerId       String   @unique
+  points           Int      @default(0)
+  lifetimeEarned   Int      @default(0)
+  lifetimeRedeemed Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  restaurant   Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions LoyaltyTransaction[]
+
+  @@index([restaurantId])
+}
+
+model LoyaltyTransaction {
+  id        String                 @id @default(cuid())
+  accountId String
+  type      LoyaltyTransactionType
+  points    Int
+  reason    String?
+  orderId   String?
+  createdAt DateTime               @default(now())
+
+  account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([orderId])
+}
+
+// ── Phase 9 — Payment status & reviews (PHASES.md §13) ─────────────────────
+// In-app feedback collected after the restaurant marks an order PAID. Google
+// review redirects are tracked as "opened" only — DynamicMenu cannot verify
+// that a Google review was actually posted.
+
+model Review {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  restaurantId      String
+  rating            Int
+  comment           String?
+  googleMapsOpenedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
 }

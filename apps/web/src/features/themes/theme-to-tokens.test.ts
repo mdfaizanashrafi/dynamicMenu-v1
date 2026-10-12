@@ -18,6 +18,8 @@ const config: ThemeConfig = {
   headerStyle: "logo",
   decorations: { garland: false, cornerFlourish: false },
   coverImageUrl: null,
+  layoutStyle: "list",
+  heroText: null,
 };
 
 describe("themeToTokens", () => {

@@ -26,4 +26,12 @@ if (!parsed.success) {
   );
 }
 
+// Production must have a real database — fail fast at boot rather than
+// serving a half-configured API (health reports "unconfigured" without it).
+if (parsed.data.NODE_ENV === "production" && !parsed.data.DATABASE_URL) {
+  throw new Error(
+    "Invalid environment configuration: DATABASE_URL is required in production."
+  );
+}
+
 export const env = parsed.data;

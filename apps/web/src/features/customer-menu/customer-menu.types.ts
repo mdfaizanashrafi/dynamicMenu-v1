@@ -59,6 +59,10 @@ export interface CustomerMenuOffer {
   description: string | null;
   badgeText: string | null;
   imageUrl: string | null;
+  discountType: "PERCENT" | "FLAT" | null;
+  discountValue: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
 }
 
 export interface CustomerMenuData {

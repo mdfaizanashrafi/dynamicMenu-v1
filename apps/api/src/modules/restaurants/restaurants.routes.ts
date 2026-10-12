@@ -8,8 +8,10 @@ import { imageStorage } from "../../services/storage.js";
 import { ApiError } from "../../utils/api-error.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 import {
+  createBranch,
   createRestaurant,
   getRestaurantDetail,
+  listBranches,
   listMembers,
   listMyRestaurants,
   setRestaurantLogo,
@@ -94,6 +96,28 @@ export function createRestaurantsRouter(requireAuth: RequestHandler): Router {
       const { restaurantId } = req.params as { restaurantId: string };
       const members = await listMembers(restaurantId);
       res.json({ success: true, data: members });
+    })
+  );
+
+  // ── Branches (Phase 15) — only on root restaurants; OWNER manages. ──────
+
+  router.get(
+    "/:restaurantId/branches",
+    requireMembership("MANAGER"),
+    asyncHandler(async (req: Request, res: Response) => {
+      const { restaurantId } = req.params as { restaurantId: string };
+      res.json({ success: true, data: await listBranches(restaurantId) });
+    })
+  );
+
+  router.post(
+    "/:restaurantId/branches",
+    requireMembership("OWNER"),
+    validate({ body: createRestaurantSchema }),
+    asyncHandler(async (req: Request, res: Response) => {
+      const { restaurantId } = req.params as { restaurantId: string };
+      const branch = await createBranch(req.user!.id, restaurantId, req.body);
+      res.status(201).json({ success: true, data: branch });
     })
   );
 

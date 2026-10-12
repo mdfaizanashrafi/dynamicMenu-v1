@@ -34,12 +34,35 @@ export const requireMembership = (
         );
       }
 
-      const membership = await prisma.restaurantMembership.findUnique({
+      let membership = await prisma.restaurantMembership.findUnique({
         where: {
           userId_restaurantId: { userId: user.id, restaurantId },
         },
         include: { restaurant: true },
       });
+
+      // Phase 15 — multi-branch: members of a branch's parent restaurant
+      // inherit the same access to the branch (staff access across branches).
+      if (!membership) {
+        const branch = await prisma.restaurant.findUnique({
+          where: { id: restaurantId },
+          select: { parentId: true },
+        });
+        if (branch?.parentId) {
+          const parentMembership = await prisma.restaurantMembership.findUnique({
+            where: {
+              userId_restaurantId: { userId: user.id, restaurantId: branch.parentId },
+            },
+            include: { restaurant: true },
+          });
+          if (parentMembership) {
+            const branchRestaurant = await prisma.restaurant.findUnique({
+              where: { id: restaurantId },
+            });
+            membership = { ...parentMembership, restaurant: branchRestaurant! };
+          }
+        }
+      }
 
       if (!membership) {
         throw new ApiError(

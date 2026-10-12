@@ -41,6 +41,19 @@ export function CustomerOffers({ offers }: Props) {
                     {offer.badgeText}
                   </span>
                 )}
+                {offer.discountType && (
+                  <span
+                    className="mb-2 ml-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold"
+                    style={{
+                      background: "var(--tm-bg)",
+                      color: "var(--tm-primary)",
+                    }}
+                  >
+                    {offer.discountType === "PERCENT"
+                      ? `${offer.discountValue}% off`
+                      : `Flat ${offer.discountValue} off`}
+                  </span>
+                )}
                 <h3 className="font-semibold">{offer.title}</h3>
                 {offer.description && (
                   <p className="mt-1 text-sm opacity-75">{offer.description}</p>

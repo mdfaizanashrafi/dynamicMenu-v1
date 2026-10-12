@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { lazy, Suspense } from "react";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { createBrowserRouter } from "react-router-dom";
 import { env } from "../config/env";
@@ -14,8 +15,36 @@ import { MenusPage } from "../features/menus/menus-page";
 import { MenuBuilderPage } from "../features/menus/menu-builder-page";
 import { ThemesPage } from "../features/themes/themes-page";
 import { TablesPage } from "../features/tables/tables-page";
-import { CustomerMenuPage } from "../features/customer-menu/customer-menu-page";
+import { OrdersPage } from "../features/orders/orders-page";
+import { CustomersPage } from "../features/customers/customers-page";
+import { AnalyticsPage } from "../features/analytics/analytics-page";
+import { LoyaltyPage } from "../features/loyalty/loyalty-page";
+import { OffersPage } from "../features/offers/offers-page";
+import { BillingPage } from "../features/billing/billing-page";
+import { BranchesPage } from "../features/branches/branches-page";
 import { NotFoundPage } from "../features/not-found/not-found-page";
+
+// Customer pages are lazy-loaded so the scanned-QR experience (mobile, often
+// slow connections) ships as a separate small chunk instead of the whole
+// dashboard bundle (Phase 17 performance pass).
+const CustomerMenuPage = lazy(() =>
+  import("../features/customer-menu/customer-menu-page").then((m) => ({
+    default: m.CustomerMenuPage,
+  }))
+);
+const CustomerOrderPage = lazy(() =>
+  import("../features/customer-menu/customer-order-page").then((m) => ({
+    default: m.CustomerOrderPage,
+  }))
+);
+
+function CustomerFallback() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-surface-warm px-6">
+      <p className="text-sm text-text-secondary">Opening your table menu…</p>
+    </div>
+  );
+}
 
 const RootLayout = env.clerkPublishableKey
   ? ({ children }: { children: ReactNode }) => (
@@ -53,6 +82,13 @@ export const router = createBrowserRouter([
               { path: "menus/:menuId", element: <MenuBuilderPage /> },
               { path: "themes", element: <ThemesPage /> },
               { path: "tables", element: <TablesPage /> },
+              { path: "orders", element: <OrdersPage /> },
+              { path: "customers", element: <CustomersPage /> },
+              { path: "analytics", element: <AnalyticsPage /> },
+              { path: "loyalty", element: <LoyaltyPage /> },
+              { path: "offers", element: <OffersPage /> },
+              { path: "billing", element: <BillingPage /> },
+              { path: "branches", element: <BranchesPage /> },
             ],
           },
         ],
@@ -60,7 +96,20 @@ export const router = createBrowserRouter([
       {
         // Public customer menu — no account required (PRD §customer-auth).
         path: "/q/:token",
-        element: <CustomerMenuPage />,
+        element: (
+          <Suspense fallback={<CustomerFallback />}>
+            <CustomerMenuPage />
+          </Suspense>
+        ),
+      },
+      {
+        // Customer order tracking + review prompt (Phase 9).
+        path: "/q/:token/order/:orderId",
+        element: (
+          <Suspense fallback={<CustomerFallback />}>
+            <CustomerOrderPage />
+          </Suspense>
+        ),
       },
       { path: "*", element: <NotFoundPage /> },
     ],

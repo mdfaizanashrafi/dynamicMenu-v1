@@ -36,13 +36,13 @@ Restaurant customer.
 
 # 2. Current Project Status
 
-**Current Phase:** Phase 6 — Customer Menu (implemented and verified locally; hosted Clerk account still pending)
+**Current Phase:** Phase 17 — Production Hardening (implemented and verified locally; hosted Clerk account still pending)
 
-**Status:** Phase 6 code complete and verified locally (typecheck/lint/test/build + HTTP smoke of QR scan → published menu → theme → categories → items → offers). Customers can browse a mobile-first, theme-rendered menu with sections, items, variants, add-ons, and active offers; no account is required.
+**Status:** Phase 17 complete — the full development roadmap (Phases 1–17) is now implemented and verified locally. The hardening pass closed real findings: bearer tokens were being written to request logs (now redacted), oversized/malformed JSON bodies returned 500 (now 413/400), public write endpoints had no dedicated abuse limit (now 30/min/IP), `DATABASE_URL` was optional in production (now fail-fast), and the customer QR experience shipped inside a 670 KB bundle (now code-split into a ~19 KB lazy chunk). A 13-checkpoint end-to-end validation of the entire product loop passes. Deployment to hosted environments awaits user-provided credentials (Neon, Clerk, Sentry, Vercel, Render).
 
 **Current Objective:**
 
-Turn the scanned QR code into a complete table-specific menu experience: restaurant branding, published menu snapshot, theme rendering, category navigation, item details with variants/add-ons, and offers.
+Finish production readiness: security/tenant audits, error-handling and logging hygiene, performance, deployment configuration, and a complete end-to-end validation — then hand off to real provisioning.
 
 ### Current State
 
@@ -82,7 +82,51 @@ Implemented & verified locally
 Phase 6: Customer Menu
     ↓
 Implemented & verified locally
-(Hosted services pending credentials)
+    ↓
+Phase 7: Cart & Ordering
+    ↓
+Implemented & verified locally
+    ↓
+Phase 8: Restaurant Order Management
+    ↓
+Implemented & verified locally
+    ↓
+Phase 9: Payment Status & Reviews
+    ↓
+Implemented & verified locally
+    ↓
+Phase 10: Customer Management
+    ↓
+Implemented & verified locally
+    ↓
+Phase 11: Analytics
+    ↓
+Implemented & verified locally
+    ↓
+Phase 12: Loyalty Program
+    ↓
+Implemented & verified locally
+    ↓
+Phase 13: Advanced Themes & Offers
+    ↓
+Implemented & verified locally
+    ↓
+Phase 14: SaaS & Commercial Features
+    ↓
+Implemented & verified locally
+    ↓
+Phase 15: Multi-Branch Restaurants
+    ↓
+Implemented & verified locally
+    ↓
+Phase 16: Integrations
+    ↓
+Implemented & verified locally
+    ↓
+Phase 17: Production Hardening
+    ↓
+Implemented & verified locally
+(Hosted services pending credentials — deployment is the remaining step)
 ```
 
 No production application functionality should be considered complete unless explicitly recorded in this file.
@@ -139,7 +183,342 @@ Customer Review Flow
 
 # 4. Current Development Phase
 
-## Phase 6 — Customer Menu
+## Phase 17 — Production Hardening
+
+### Objective
+
+Final production pass across security, tenant isolation, performance, error handling, monitoring/logging, SEO, deployment configuration, and a complete end-to-end validation (PHASES.md §21).
+
+### Current Completion
+
+```text
+Security audit                     [x] Done (helmet CSP/HSTS verified per-response; public write endpoints got a dedicated 30/min/IP limiter on top of the global 120/min; audit found + fixed the items below)
+Tenant-isolation audit             [x] Done (every tenant router still resolves membership/ownership server-side; cross-tenant 404 behavior re-verified by the full suite incl. branches/orgs)
+Logging fix                        [x] Done (audit found bearer + dev-auth tokens were written to request logs; pino serializers now redact authorization / x-dev-* headers — verified live)
+Error handling fix                 [x] Done (oversized JSON bodies were 500 → now 413 PAYLOAD_TOO_LARGE; malformed JSON → 400 INVALID_JSON; consistent error envelope re-tested)
+Production configuration         [x] Done (env boot now fails fast when NODE_ENV=production lacks DATABASE_URL; render.yaml build runs prisma migrate deploy; ESLint project cap raised for the growing suite)
+Performance                        [x] Done (customer QR routes lazy-loaded: the scanned-menu chunk is ~19 KB instead of the 670 KB dashboard bundle — matters on restaurant Wi-Fi/mobile)
+SEO                                [x] Done (customer menu + order pages set document.title to the restaurant name)
+Monitoring                         [~] Sentry wired (web + api), DSN pending credentials; health endpoint reports DB status; structured pino logs with redaction
+Accessibility                      [~] Radix-based dialogs with titles/descriptions, labeled form controls, keyboard-navigable flows (dashboard + customer menu); no new a11y regressions in the suite
+Database optimization              [~] Indexes in place on all hot paths (tenant FKs, order status/date, token lookups); no slow-query evidence at current volume — revisit with real data
+Backup/recovery                    [~] Not configured locally: Neon (target provider) offers PITR/backups on paid plans; document a pg_dump schedule before production launch
+Deployment                         [~] vercel.json + render.yaml ready (migrations in build); provisioning awaits user credentials
+End-to-end validation              [x] Done (13-checkpoint live chain: restaurant → plan upgrade → menu+items+variants+addons+publish → theme publish → offer → branch → QR → discounted order → lifecycle to PAID → loyalty points → review → Google redirect → org analytics → customer profile → redemption — all PASS)
+```
+
+### Key Decisions
+
+Hardening fixed four concrete findings rather than inventing new features: credential redaction in request logs, 413/400 for body errors, per-IP write limits, and fail-fast production env. Performance work was limited to the highest-leverage split (the customer QR bundle). Items marked `~` are documented as pending rather than faked: Sentry DSN, hosted provisioning, backup automation, and deeper a11y/DB work all require credentials, real data, or explicit requirements.
+
+### Verification (2026-10-12, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (125 tests: 111 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/hardening.test.ts`, 6 tests): security headers, error-shape consistency without internals, rate-limit headers, 413 oversized body, 400 malformed JSON, 401 unauthenticated dashboard.
+E2E validation: 13/13 checkpoints over the complete product loop (see above). Log redaction verified live against a running server.
+
+---
+
+## Phase 16 — Integrations (completed)
+
+### Objective
+
+Integrate with external services **as specified by the project requirements only**, keeping every integration isolated behind a service module (PHASES.md §20, ARCHITECTURE.md §46 constraint 11).
+
+### Current Completion
+
+```text
+Requirements audit                 [x] Done (PRD/PHASES/ARCHITECTURE reviewed: the ONLY specified external integration is Google Maps review redirection; PHASES.md §20's payment gateways / POS / KDS / WhatsApp / SMS / email / Google Business / inventory / accounting / CRM are explicitly "potential future" — none implemented, per instructions)
+Integration layer                  [x] Done (apps/api/src/integrations/google-maps.ts — the convention: one module per provider; domain services call the module, never the provider)
+Google Maps extraction             [x] Done (reviews.service now routes its redirect through reviewRedirectUrl(); redirect-only semantics unchanged — we never claim a posted review)
+Open-redirect hardening            [x] Done (normalizeGoogleMapsUrl allows only https on Google-owned hosts; a stored non-Google URL yields a null redirect instead of an open redirect)
+Already-integrated (earlier phases) [x] Clerk auth (Phase 1), Sentry monitoring wiring (Phase 0, DSN pending credentials), Google Maps (Phase 9, now behind the integration layer)
+```
+
+### Key Design Decision
+
+PHASES.md §20 lists eight integration categories but marks every one as "potential future". The instruction "only implement integrations that are actually specified or approved" therefore reduces Phase 16 to architecture, not new providers: the Google Maps integration (the one specified integration, from the review workflow) was extracted from the review domain into `integrations/google-maps.ts` with a hostname allow-list that closes an open-redirect hole on the stored `googleMapsUrl` profile field. When a future phase specifies a provider (e.g. a payment gateway), it gets its own module under `integrations/` and core logic stays untouched.
+
+### Verification (2026-10-12, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (119 tests: 105 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/integrations.test.ts`, 5 tests): Google-host allow-list unit tests (accept maps.google.com / maps.app.goo.gl; reject foreign hosts, subdomain spoofing, http, malformed), redirect-only semantics, and end-to-end proof that a restaurant storing a non-Google `googleMapsUrl` gets a null redirect (no open redirect) while legitimate URLs still redirect.
+
+---
+
+## Phase 15 — Multi-Branch Restaurants (completed)
+
+### Objective
+
+Let restaurant organizations manage multiple physical branches: branch management, branch-specific menus/tables/orders, staff access across branches, and organization analytics (PHASES.md §19).
+
+### Current Completion
+
+```text
+Branch model + migration           [x] Done (Restaurant.parentId self-relation, one level deep; migration 20261011171552_phase15_multi_branch)
+Branch management                  [x] Done (GET/POST /restaurants/:rid/branches — MANAGER+/OWNER; branch-of-branch rejected with BRANCH_OF_BRANCH; slug uniqueness enforced)
+Branch resources                   [x] Done (branches are full tenants: own menus, tables, QR tokens, orders, customers, reviews — everything existing works per branch unchanged)
+Staff access                       [x] Done (requireMembership falls back to the parent restaurant's membership, so org members manage every branch with their role; GET /restaurants includes accessible branches in the workspace list, deduped)
+Organization plan                  [x] Done (subscription resolves to the root restaurant — one plan per organization; usage limits still count per branch)
+Organization analytics             [x] Done (GET /analytics?scope=org aggregates root + branches with a byBranch breakdown; branch cards on the dashboard)
+Dashboard                          [x] Done (/dashboard/branches list + create form; branch rows show menu/table counts; workspace picker switches between root and branches)
+Tenant isolation                   [x] Done (outsiders and unrelated members get 404 on branch routes; workspaces of other orgs never list foreign branches — integration-tested)
+```
+
+### Key Design Decision
+
+A branch is a child `Restaurant`, not a new entity type: every existing feature (menus, QR ordering, loyalty, analytics, entitlements) works on branches unchanged, and tenant isolation is preserved because each branch remains an independent tenant. The only cross-branch mechanism is the membership fallback in `requireMembership` (one level up), which gives org staff access without duplicating memberships, plus the root subscription and the `scope=org` analytics aggregation. Everything else treats a branch exactly like any restaurant.
+
+### Verification (2026-10-11, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (114 tests: 100 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/branches.test.ts`, 7 tests): branch create/list, branch-of-branch rejection, slug conflicts, inherited staff access (MANAGER creates branch tables, STAFF reads branch orders), outsider/anonymous isolation, org analytics totals + per-branch breakdown + restaurant-scope exclusion, root-subscription entitlement inheritance.
+HTTP smoke: root → created "Uptown" branch → workspace list deduped (root + branch) → inherited table create on branch → org analytics `byBranch` spanning both after plan upgrade; web `/dashboard/branches` serves via built app.
+
+---
+
+## Phase 14 — SaaS & Commercial Features (completed)
+
+### Objective
+
+Operate DynamicMenu as a commercial SaaS: subscriptions, plans, usage limits, feature entitlements, and account management (PHASES.md §18, ARCHITECTURE.md §45).
+
+### Current Completion
+
+```text
+Subscription architecture          [x] Done (Restaurant → Subscription (restaurantId unique, plan, status) → Plan → Entitlements; migration 20261011074336_phase14_subscriptions with FREE backfill for existing restaurants)
+Plans                              [x] Done (static catalog modules/billing/plans.ts: FREE / STARTER / PRO / ENTERPRISE with monthly prices, usage limits, and feature flags; entitlements checked via billing.service, never hard-coded in routes)
+Usage limits                       [x] Done (tables/menus/offers counts enforced pre-create; over limit → 402 PLAN_LIMIT_REACHED; usage tracked live on the subscription view)
+Feature gating                     [x] Done (analytics + Loyalty Program gated; locked → 403 PLAN_FEATURE_LOCKED; loyalty point earning silently skips when not entitled)
+Account management                 [x] Done (GET /subscription with usage + plan catalog — MANAGER+; PUT /subscription/plan self-serve change — OWNER; /dashboard/billing page with usage bars and plan cards)
+Billing integration                [x] Deliberately NOT implemented — project requirements define no billing provider; prices are display-only and plan changes collect no payment
+```
+
+### Key Design Decision
+
+Per the user's constraint ("do not introduce billing behavior not defined by the project requirements") and PHASES.md ("initial commercial structure can be defined later"), this phase builds the entitlement architecture without any payment collection. Subscriptions auto-provision as FREE (one per restaurant, upserted on first access), plans are a static catalog, and enforcement is centralized in `billing.service` (`assertCanCreate`, `assertFeature`) so future billing webhooks only need to flip `Subscription.plan`/`status`. PHASES.md's caution against plan restrictions is noted: FREE limits are generous (3 tables / 2 menus / 2 offers) and the two premium features are the only gates.
+
+### Verification (2026-10-11, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (107 tests: 93 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/billing.test.ts`, 6 tests): auto-provisioning + usage view, table/menu/offer limit enforcement, feature gates unlocking after upgrade, OWNER-only plan changes, tenant isolation. analytics/loyalty suites updated to provision PRO subscriptions for their entitlement-gated endpoints.
+HTTP smoke: FREE restaurant → 4th table `402 PLAN_LIMIT_REACHED`, analytics `403 PLAN_FEATURE_LOCKED` → PUT plan PRO → analytics 200, 4th table 201; web `/dashboard/billing` serves via built app.
+
+---
+
+## Phase 13 — Advanced Themes & Offers (completed)
+
+### Objective
+
+Seasonal/festive themes with deeper customization, and a real offers engine: promotional campaigns with discounts and scheduling (PHASES.md §17).
+
+### Current Completion
+
+```text
+Offer schema + migration           [x] Done (Offer: +discountType PERCENT/FLAT, discountValue, startsAt, endsAt; Order: +subtotal w/ backfill, discount, offerId; migration 20261011055617_phase13_themes_offers)
+Offers engine                      [x] Done (schedule-aware listActiveOffers; bestActiveDiscount picks the largest live discount; CRUD with OFFER_INVALID_DISCOUNT / OFFER_INVALID_SCHEDULE validation)
+Auto-discounts                     [x] Done (createOrder applies the best live offer server-side; subtotal/discount/offerId stored on the order; cart + order detail show the saving)
+Campaign scheduling                [x] Done (startsAt/endsAt window enforced for both menu display and discount application)
+Offers dashboard                   [x] Done (/dashboard/offers — create/edit form with discount + schedule, activate/deactivate, delete; MANAGER+; nav link)
+Seasonal themes                    [x] Done (4 new presets: Diwali Lights, Christmas Eve, Eid Celebration, Halloween Night with garlands/hero text)
+Advanced customization           [x] Done (ThemeConfig +layoutStyle list|grid and heroText; zod defaults keep pre-Phase-13 saved configs valid; editor controls; customer menu renders both)
+```
+
+### Key Design Decision
+
+Offers are campaigns, not coupons: any live discount-bearing offer applies automatically to every new order, and the largest discount wins. All discount math happens in `bestActiveDiscount` at order creation — the client never sends prices or discounts (RULES.md §9). Scheduling is a single `withinSchedule` check shared by the public menu display and the discount selector, so a campaign can never discount while hidden (or vice versa).
+
+### Verification (2026-10-11, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (101 tests: 87 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/offers.test.ts`, 6 tests): CRUD + validation, schedule filtering on the public menu, best-discount selection, banner/expired exclusion, roles + tenant isolation.
+HTTP smoke: live 10% offer auto-applied (500 → 450, `offerId` set) while a 2030-dated campaign stays hidden from the public menu; web `/dashboard/offers` and `/q/:token` serve via built app.
+
+---
+
+## Phase 12 — Loyalty Program (completed)
+
+### Objective
+
+Reward repeat visits with points: automatic earning on paid orders, restaurant-scoped loyalty accounts with history, and counter redemption (PHASES.md §16).
+
+### Current Completion
+
+```text
+Loyalty models + migration         [x] Done (LoyaltyAccount: customerId unique, points, lifetimeEarned/Redeemed; LoyaltyTransaction: EARN/REDEEM/ADJUST, reason, orderId; migration 20261010161555_phase12_loyalty_program)
+Earning rules                      [x] Done (1 point per 100 spent, floored; awarded inside the PAID order transition)
+Idempotent earning                 [x] Done (one EARN transaction per order; retries and PAID→COMPLETED never double-award)
+Redemption                         [x] Done (POST /loyalty/redeem by customerId or phone; atomic balance check; over-redemption → 400 LOYALTY_INSUFFICIENT_POINTS)
+Restaurant management            [x] Done (GET /loyalty/accounts with search — MANAGER+; /dashboard/loyalty with redeem form for STAFF+ and searchable account list for MANAGER+)
+Customer loyalty history           [x] Done (customer detail returns balance + last 20 transactions; order tracking page shows the customer's points)
+```
+
+### Key Design Decision
+
+Points are a side effect of the order state machine, not the order flow: `transitionOrder` calls `awardPointsForOrder` only when entering `PAID`, and the award checks for an existing EARN transaction for that order first. Balances live on `LoyaltyAccount` (one per customer, restaurant-scoped) with a full `LoyaltyTransaction` ledger, so history is auditable and balances are recomputable.
+
+### Verification (2026-10-10, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (95 tests: 81 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/loyalty.test.ts`, 7 tests): earning rule (floor), idempotency (duplicate call + PAID→COMPLETED), redemption + over-redemption, account list search + STAFF restrictions, loyalty on customer status/detail payloads, tenant isolation, payload validation.
+HTTP smoke: 900-spend order marked paid → 9 points → redeem 3 → balance 6 visible on the customer tracking page; web `/dashboard/loyalty` serves via built app.
+
+---
+
+## Phase 11 — Analytics (completed)
+
+### Objective
+
+Turn order, customer, and review data into restaurant insights: revenue/order metrics, time-based trends, item/customer/table performance (PHASES.md §15).
+
+### Current Completion
+
+```text
+Analytics API                      [x] Done (GET /restaurants/:rid/analytics?days=N — MANAGER+; N clamped 1–90)
+Overview metrics                   [x] Done (all-time counted orders, revenue from PAID/COMPLETED orders, average order value, total/repeat customers, review count + average rating)
+Time-based trends                  [x] Done (zero-filled orders + revenue per day series, UTC-aligned)
+Popular items                      [x] Done (top 8 by quantity sold in range, with revenue)
+Customer activity                  [x] Done (top 5 customers by lifetime spend + repeat-customer count)
+Menu/table performance             [x] Done (orders per table, in-range order status breakdown)
+Dashboard UI                       [x] Done (/dashboard/analytics: range selector 7/14/30 days, stat cards, per-day bar chart, item/customer/table/status list cards)
+Tenant isolation                   [x] Done (every query filtered by restaurantId; cross-tenant test proves other restaurants see zeros, never foreign data)
+```
+
+### Key Design Decision
+
+Analytics are computed live from tenant-scoped rows rather than a separate analytics store — volume is low and correctness matters more than query cost at this stage (an `AnalyticsEvent` table remains a future optimization). Revenue is counted only from `PAID`/`COMPLETED` orders and cancelled/rejected orders are excluded from every metric except the raw status breakdown. Daily buckets are aligned to UTC so the series is stable regardless of server timezone.
+
+### Verification (2026-10-10, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (88 tests: 74 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/analytics.test.ts`, 5 tests): metric correctness across pending/paid/cancelled orders, daily bucket count and values, popular-item ordering, top customers, review aggregates, MANAGER+/STAFF/outsider/anonymous access, tenant isolation (other restaurant sees zeros), days-parameter validation.
+HTTP smoke: two orders + one paid + one review → analytics returns revenue 300, avg rating 5, popular item "Thali" ×3; web `/dashboard/analytics` serves via built app.
+
+---
+
+## Phase 10 — Customer Management (completed)
+
+### Objective
+
+Give restaurants a customer directory: restaurant-scoped customer profiles derived from orders, with search, order history, and basic insights (PHASES.md §14).
+
+### Current Completion
+
+```text
+Customer model + migration         [x] Done (Customer: restaurantId, name, phone, email; @@unique([restaurantId, phone]); Order.customerId; migration 20261010063716_phase10_customer_management incl. backfill of existing orders)
+Auto-linking on order              [x] Done (order creation upserts the customer by restaurant+phone and sets order.customerId)
+Customers API                      [x] Done (GET list w/ ?q= search on name/phone/email — STAFF+; GET detail w/ order history + insights — MANAGER+)
+Search/filter                      [x] Done (case-insensitive substring search)
+Customer insights                  [x] Done (order count, total spent, average order value, favorite item, first/last order dates, recent 20 orders)
+Role limits                        [x] Done (STAFF see the list without emails per ARCHITECTURE.md §26 "Limited"; full details require MANAGER+)
+Dashboard UI                       [x] Done (/dashboard/customers: debounced search, customer cards with spend/orders/last-visit, detail dialog with insight stats + order history)
+```
+
+### Key Design Decision
+
+Customers are restaurant-scoped and identified by phone number — the same person dining at two restaurants is two customers, matching the multi-tenant model (ARCHITECTURE.md §4). Profiles are never created by hand; order creation upserts them. Aggregates (order count, spend, favorite item) are computed from the orders/order items tables, so insights stay correct even if a profile is updated.
+
+### Verification (2026-10-10, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (83 tests: 69 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/customers.test.ts`, 6 tests): profile creation/aggregation from orders, search by name/phone, detail insights (favorite item, average order value, recent orders), STAFF list-only limitation, outsider/anonymous rejection, tenant scoping.
+HTTP smoke: two orders from the same phone → one customer with aggregated spend → detail returns favorite item and order history → search narrows results; web `/dashboard/customers` serves via built app.
+
+---
+
+## Phase 9 — Payment Status & Reviews (completed)
+
+### Objective
+
+Close the loop after payment: when the restaurant marks an order PAID, the customer becomes eligible to leave feedback and is offered a Google Maps review redirect (PHASES.md §13).
+
+### Current Completion
+
+```text
+Review model + migration           [x] Done (Review: orderId unique, restaurantId, rating 1-5, comment, googleMapsOpenedAt; migration 20261009155801_phase9_payment_reviews)
+Customer order status endpoint     [x] Done (GET /public/qr/:token/orders/:orderId — token → table → order scoped; returns status, total, restaurant Google URL, reviewEligible, existing review)
+Review eligibility                 [x] Done (eligible only when order status is PAID or COMPLETED; enforced server-side)
+Review submission                  [x] Done (POST .../review; one review per order via idempotent upsert; rating 1-5 validated)
+Google Maps redirect               [x] Done (POST .../review/google records googleMapsOpenedAt and returns the restaurant's URL; redirect-only, never claims a posted review)
+Customer order page                [x] Done (/q/:token/order/:orderId: status polling every 5s, star-rating form when eligible, Google button after feedback, explicit "we cannot confirm a posted review" note)
+Order confirmation link            [x] Done (cart drawer links to the tracking page)
+```
+
+### Key Design Decision
+
+A review is attached 1:1 to an order and can only exist after `PAID`. Google review tracking is limited to recording that the customer opened the Google Maps link (`googleMapsOpenedAt`) — Google does not provide a way to verify a review was actually posted, so the product copy and API only ever claim the redirect (PRD §reviews, ARCHITECTURE.md §18).
+
+### Verification (2026-10-10, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (77 tests: 63 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/reviews.test.ts`, 6 tests): status payload with eligibility + Google URL, rejection before PAID, submit-after-paid, idempotent one-per-order upsert, rating range validation, Google-click tracking (before/after review, timestamp stability), token→table→order scoping.
+HTTP smoke: full dashboard lifecycle to PAID → status endpoint shows `reviewEligible: true` → review submitted → Google click returns URL and records `googleMapsOpenedAt`; web `/q/:token/order/:orderId` serves via built app.
+
+---
+
+## Phase 8 — Restaurant Order Management (completed)
+
+### Objective
+
+Give restaurants a dashboard for incoming orders: view order details, and drive the order state machine with backend-validated transitions (PHASES.md §12, ARCHITECTURE.md §15).
+
+### Current Completion
+
+```text
+Order management API               [x] Done (GET list w/ optional status filter, GET detail, PATCH status under /restaurants/:rid/orders; STAFF+ per ARCHITECTURE.md §26)
+State machine validation           [x] Done (ALLOWED_TRANSITIONS map; PENDING→CONFIRMED→PREPARING→READY→SERVED→PAID→COMPLETED; CANCELLED/REJECTED terminal; REJECTED only from PENDING)
+Dashboard orders page              [x] Done (/dashboard/orders: status filter tabs, order cards with table/customer/total/status)
+Order details                      [x] Done (detail dialog: items, variants, add-ons, customer info, notes, timestamps)
+Transition actions                 [x] Done (buttons for allowed next states; destructive CANCELLED/REJECTED styled differently)
+Polling updates                    [x] Done (5-second auto-refresh while the page is open)
+Tenant isolation & roles           [x] Done (STAFF can manage; outsiders 404; unauthenticated 401; cross-restaurant order access blocked)
+```
+
+### Key Design Decision
+
+The state machine lives in one backend map (`ALLOWED_TRANSITIONS` in orders.service.ts). The dashboard renders action buttons from a mirror of that map, but every transition is re-validated server-side — invalid moves return `ORDER_INVALID_TRANSITION` (400), and terminal states (`COMPLETED`, `CANCELLED`, `REJECTED`) accept no further changes.
+
+### Verification (2026-10-09, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (71 tests: 57 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/order-management.test.ts`, 7 tests): full lifecycle walk, invalid transition rejection, terminal states, reject-from-pending, list + status filter + item details, tenant scoping, STAFF/outsider/anonymous access, payload validation.
+HTTP smoke: public order → `GET /restaurants/:rid/orders` lists it → `PATCH` to CONFIRMED succeeds → PENDING rollback rejected; web `/dashboard/orders` serves via built app.
+
+---
+
+## Phase 7 — Cart & Ordering (completed)
+
+### Objective
+
+Let customers add menu items (with variants and add-ons) to a cart, adjust quantities, and place a table-specific order (PHASES.md §11). Prices and totals must be computed on the backend.
+
+### Current Completion
+
+```text
+Order models + migration           [x] Done (Order/OrderItem/OrderItemAddon + OrderStatus enum; migration 20261009143004_phase7_cart_ordering)
+Order creation API                 [x] Done (POST /api/v1/public/qr/:token/orders; public, rate-limited)
+Server-side price recomputation    [x] Done (base + variant + add-on prices come from the published MenuRevision snapshot; frontend prices/totals ignored)
+Live availability checks           [x] Done (item/variant/add-on isAvailable validated against the database, not just the snapshot)
+Table association                  [x] Done (order.tableId set from the QR token's RestaurantTable)
+Customer information               [x] Done (name + phone required; email and notes optional)
+Cart state (web)                   [x] Done (CartProvider + useCart; add/merge, quantity update, remove, clear, totals)
+Cart UI                            [x] Done (cart button with count/total, bottom-sheet drawer, per-line quantities, order summary, checkout form, confirmation screen)
+Validation & tests                 [x] Done (7 API tests: recomputed prices, ignored frontend totals, unavailable/foreign items, missing customer info, no published menu, inactive token)
+```
+
+### Key Design Decision
+
+The frontend sends only item IDs, variant ID, add-on IDs, and quantities. The backend resolves the QR token to a table, loads the published menu snapshot for pricing, checks live availability from the menu tables, and recomputes the total before writing the order. This satisfies "never trust frontend business values" (RULES.md §9) — a tampered price field cannot affect the stored total.
+
+### Verification (2026-10-09, local)
+
+`npm run typecheck`, `npm run lint`, `npm run test` (64 tests: 50 API + 14 web), `npm run build` all pass.
+New API tests (`apps/api/test/orders.test.ts`, 7 tests): recomputed prices with variant + add-on, table/restaurant association, ignored frontend price, unavailable item/variant/add-on rejection, foreign item rejection, required customer fields, no published menu, inactive QR token.
+HTTP smoke: create menu → publish → table → POST `/public/qr/:token/orders` returns a PENDING order with correct total; web `/q/:token` serves the cart-enabled customer app.
+
+---
+
+## Phase 6 — Customer Menu (completed)
 
 ### Objective
 
@@ -382,6 +761,17 @@ CI/CD                   [x] GitHub Actions workflow created; runs on push to Git
 [x] Phase 4 theme system — RestaurantTheme (draft/published config JSON) + migration phase4_theme_system; 4 built-in presets; theme APIs with publish + preview; /dashboard/themes gallery + editor + live preview; menu-data integrity tested
 [x] Phase 5 tables & QR — RestaurantTable schema + migration 20261009101341_phase5_tables_qr; unique URL-safe qrToken; tables CRUD + rotate API; public /api/v1/public/qr/:token resolution; /dashboard/tables management + QR preview/download; /q/:token customer landing page; onboarding "Active table" step; tenant-security tested
 [x] Phase 6 customer menu — Offer model + migration 20261009141616_phase6_customer_menu_offers; public `/api/v1/public/qr/:token/menu` endpoint; published MenuRevision snapshot + published theme + active offers served to mobile-first /q/:token page; category navigation, item cards, item detail dialog with variants/add-ons; loading/error/empty states
+[x] Phase 7 cart & ordering — Order/OrderItem/OrderItemAddon schema + migration 20261009143004_phase7_cart_ordering; POST /api/v1/public/qr/:token/orders; server-side price recomputation from published snapshot + live availability checks; table association from QR token; web CartProvider, cart button, bottom-sheet drawer, quantity controls, checkout form with name/phone
+[x] Phase 8 order management — order list/detail/transition APIs under /restaurants/:rid/orders (STAFF+); ALLOWED_TRANSITIONS state machine with terminal CANCELLED/REJECTED; /dashboard/orders page with status filters, order detail dialog, transition buttons, 5-second polling; tenant isolation tested
+[x] Phase 9 payment & reviews — Review model + migration 20261009155801_phase9_payment_reviews; customer order status endpoint scoped token→table→order; review eligibility at PAID/COMPLETED; one-review-per-order upsert; Google Maps redirect tracked as open-event only; /q/:token/order/:orderId tracking page with review prompt
+[x] Phase 10 customer management — Customer model (restaurant-scoped, unique by restaurant+phone) + Order.customerId + migration 20261010063716_phase10_customer_management with backfill; auto-upsert on order creation; customers list w/ search (STAFF+) and detail w/ order history + insights (MANAGER+); /dashboard/customers page with search, cards, and detail dialog
+[x] Phase 11 analytics — GET /restaurants/:rid/analytics (MANAGER+) computing overview (orders, revenue, AOV, customers, reviews), UTC-aligned daily orders/revenue trends, popular items, top customers, orders-by-table, and status breakdowns; /dashboard/analytics page with range selector, stat cards, bar chart, and list cards; tenant-isolated queries
+[x] Phase 12 loyalty program — LoyaltyAccount + LoyaltyTransaction models + migration 20261010161555_phase12_loyalty_program; earning rule 1 pt per 100 spent awarded idempotently on PAID transition; counter redemption endpoint (STAFF+) with atomic balance checks; accounts list (MANAGER+); /dashboard/loyalty page; points on customer tracking page + loyalty history in customer detail
+[x] Phase 13 themes & offers — Offer discount fields (PERCENT/FLAT) + scheduling + Order subtotal/discount/offerId + migration 20261011055617_phase13_themes_offers (subtotal backfilled); server-side best-discount auto-application at order creation; schedule-aware menu display; /dashboard/offers CRUD (MANAGER+); 4 seasonal theme presets + heroText + list/grid layoutStyle
+[x] Phase 14 SaaS foundations — Subscription model (one per restaurant, auto-FREE) + Plan enum + migration 20261011074336_phase14_subscriptions (FREE backfill); static plan catalog (FREE/STARTER/PRO/ENTERPRISE) with limits + feature flags; usage limits enforced pre-create (402 PLAN_LIMIT_REACHED); analytics/loyalty feature gates (403 PLAN_FEATURE_LOCKED); GET /subscription + OWNER plan change; /dashboard/billing page; no billing provider integrated (not defined by requirements)
+[x] Phase 15 multi-branch — Restaurant.parentId self-relation (branch = child restaurant, one level) + migration 20261011171552_phase15_multi_branch; GET/POST branches (OWNER); parent-membership inheritance in requireMembership; branches in workspace list (deduped); root subscription shared per organization; analytics ?scope=org with byBranch breakdown; /dashboard/branches page
+[x] Phase 16 integrations — requirements audit found only Google Maps specified (all others "potential future" in PHASES.md §20, not implemented); integration layer established at apps/api/src/integrations/google-maps.ts with Google-host allow-list closing an open-redirect hole on the stored googleMapsUrl; reviews domain routed through the module
+[x] Phase 17 production hardening — log redaction of auth tokens; 413/400 for body errors; 30/min/IP write limiter; fail-fast production env (DATABASE_URL); render build runs migrations; customer QR routes code-split (~19 KB chunk); per-page document titles; hardening test suite; 13-checkpoint E2E validation; 125 tests passing
 [ ] Database setup — Prisma configured; local dev + test Postgres verified; awaiting Neon DATABASE_URL for hosted environments
 [ ] Clerk authentication — code complete; awaiting Clerk application keys to verify real sign-in
 [ ] Sentry monitoring — SDK wired; awaiting DSN
@@ -389,6 +779,50 @@ CI/CD                   [x] GitHub Actions workflow created; runs on push to Git
 [ ] Render deployment — render.yaml ready; not provisioned
 [ ] CI/CD — workflow updated with Postgres service for tests; not yet run on GitHub
 ```
+
+Verification evidence (2026-10-12, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (125 tests: 111 API + 14 web), `npm run build` all pass.
+New hardening tests cover security headers, error shapes, rate-limit headers, 413/400 body handling; E2E validation 13/13; log redaction verified live.
+
+Verification evidence (2026-10-12, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (119 tests: 105 API + 14 web), `npm run build` all pass.
+New integration tests prove Google-host allow-listing and the null-redirect behavior for non-Google stored URLs.
+
+Verification evidence (2026-10-11, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (114 tests: 100 API + 14 web), `npm run build` all pass.
+HTTP smoke: root → created "Uptown" branch → workspace list deduped (root + branch) → inherited table create on branch → org analytics `byBranch` spanning both after plan upgrade; web `/dashboard/branches` serves via built app.
+
+Verification evidence (2026-10-11, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (107 tests: 93 API + 14 web), `npm run build` all pass.
+HTTP smoke: FREE restaurant → 4th table `402 PLAN_LIMIT_REACHED`, analytics `403 PLAN_FEATURE_LOCKED` → PUT plan PRO → analytics 200, 4th table 201; web `/dashboard/billing` serves via built app.
+
+Verification evidence (2026-10-11, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (101 tests: 87 API + 14 web), `npm run build` all pass.
+HTTP smoke: live 10% offer auto-applied (500 → 450, `offerId` set) while a 2030-dated campaign stays hidden from the public menu; web `/dashboard/offers` and `/q/:token` serve via built app.
+
+Verification evidence (2026-10-10, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (95 tests: 81 API + 14 web), `npm run build` all pass.
+HTTP smoke: 900-spend order marked paid → 9 points → redeem 3 → balance 6 visible on the customer tracking page; web `/dashboard/loyalty` serves via built app.
+
+Verification evidence (2026-10-10, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (88 tests: 74 API + 14 web), `npm run build` all pass.
+HTTP smoke: two orders + one paid + one review → analytics returns revenue 300, avg rating 5, popular item "Thali" ×3; web `/dashboard/analytics` serves via built app.
+
+Verification evidence (2026-10-10, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (83 tests: 69 API + 14 web), `npm run build` all pass.
+HTTP smoke: two orders from the same phone → one customer with aggregated spend → detail returns favorite item and order history → search narrows results; web `/dashboard/customers` serves via built app.
+
+Verification evidence (2026-10-10, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (77 tests: 63 API + 14 web), `npm run build` all pass.
+HTTP smoke: full dashboard lifecycle to PAID → status endpoint shows `reviewEligible: true` → review submitted → Google click returns URL and records `googleMapsOpenedAt`; web `/q/:token/order/:orderId` serves via built app.
+
+Verification evidence (2026-10-09, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (71 tests: 57 API + 14 web), `npm run build` all pass.
+HTTP smoke: public order → `GET /restaurants/:rid/orders` lists it → PATCH to CONFIRMED succeeds → PENDING rollback rejected with `ORDER_INVALID_TRANSITION`; web `/dashboard/orders` serves via built app.
+
+Verification evidence (2026-10-09, local):
+`npm run typecheck`, `npm run lint`, `npm run test` (64 tests: 50 API + 14 web), `npm run build` all pass.
+HTTP smoke: create menu → publish → table → POST `/api/v1/public/qr/:token/orders` returns a PENDING order with server-computed total; web `/q/:token` serves the cart-enabled customer app.
 
 Verification evidence (2026-10-09, local):
 `npm run typecheck`, `npm run lint`, `npm run test` (57 tests: 43 API + 14 web), `npm run build` all pass.
@@ -757,6 +1191,15 @@ Workaround: .env.test is now loaded in test/global-setup.ts (main thread, before
 Resolution: Revisit when upgrading Vitest; verify a canary log line from the setup file runs.
 ```
 
+```text
+Issue: Prisma migrate refused to run because the phase10 migration file was edited after application (SQL backfill appended), forcing a reset of the local dev database.
+Detected: 2026-10-10 (Phase 12).
+Impact: Local dev data (smoke-test rows in dynamicmenu_dev) was dropped; schema and migrations unaffected.
+Status: Resolved.
+Workaround: `npx prisma migrate reset --force` re-applied all migrations including the backfill.
+Resolution: Avoid editing applied migration files; append data backfills as NEW migrations in future.
+```
+
 New issues must be recorded here with:
 
 ```text
@@ -807,6 +1250,16 @@ Previous: No production domain configured; WEB_BASE_URL default was localhost on
 New: Project domain is `dynamicmenu.store`. `.env.example` now documents `WEB_BASE_URL=https://dynamicmenu.store` for production and `render.yaml` sets `WEB_BASE_URL=https://dynamicmenu.store` and `CORS_ORIGIN=https://dynamicmenu.store` on the Render service. API_BASE_URL remains user-provided per deployment.
 Reason: Customer-facing QR codes and CORS need a stable public domain before Phase 6 customer-menu work.
 Affected Components: .env.example, render.yaml, QR menuUrl generation (uses WEB_BASE_URL).
+```
+
+```text
+Date: 2026-10-12
+Change: Integration layer for external providers
+Previous: The Google Maps review redirect was embedded in the review domain (reviews.service) and any https URL stored in Restaurant.googleMapsUrl was returned to the customer — an open-redirect risk.
+New: `apps/api/src/integrations/<provider>.ts` is the convention — one module per external provider, domain services call the module only. Google Maps lives at integrations/google-maps.ts with `normalizeGoogleMapsUrl` (https + Google-owned hosts only) and `reviewRedirectUrl` (redirect-only, never claims a posted review).
+Reason: ARCHITECTURE.md §46 constraint 11 (isolate external integrations) + the Phase 16 instruction to only implement specified integrations.
+Affected Components: reviews.service (recordGoogleMapsOpen), new integrations/ directory, integrations tests.
+Note: Future specified providers (payment gateways, SMS, email, …) get their own module under integrations/; core logic must stay provider-agnostic.
 ```
 
 Record actual architectural changes here.
@@ -955,13 +1408,13 @@ Important security requirements:
 
 # 19. Current Database State
 
-**Status:** Tenant core + restaurant profile + menu + themes + tables + offers implemented; dev + test databases migrated
+**Status:** Tenant core + restaurant profile + menu + themes + tables + offers + orders + reviews + customers + loyalty implemented; dev + test databases migrated
 
-`prisma/schema.prisma` (PostgreSQL) contains the tenant core, restaurant profile, Phase 3 menu domain, Phase 4 theme config, Phase 5 tables, and Phase 6 offers:
+`prisma/schema.prisma` (PostgreSQL) contains the tenant core, restaurant profile, Phase 3 menu domain, Phase 4 theme config, Phase 5 tables, Phase 6 offers, Phase 7 orders, Phase 9 reviews, Phase 10 customers, and Phase 12 loyalty:
 
 ```text
 User                     (id, clerkId unique, email unique, name)
-Restaurant               (id, name, slug unique, status,
+Restaurant               (id, name, slug unique, status, parentId?,
                           description, cuisine, phone, email, websiteUrl,
                           addressLine1/2, city, state, postalCode, country,
                           logoUrl, primaryColor, googleMapsUrl)
@@ -983,7 +1436,28 @@ RestaurantTheme          (restaurantId unique, draftConfig Json,
                           publishedConfig Json, publishedAt)
 RestaurantTable          (restaurantId, label, qrToken unique, isActive)
 Offer                    (restaurantId, title, description, badgeText,
-                          imageUrl, isActive, position)
+                          imageUrl, discountType PERCENT/FLAT?, discountValue,
+                          startsAt/endsAt schedule window, isActive, position)
+
+Order                    (restaurantId, tableId, status, customerName/Phone/Email,
+                          notes, subtotal, discount, total Decimal(10,2), offerId)
+OrderItem                (orderId, menuItemId, name, quantity, basePrice,
+                          variantId/Name/Price, subtotal)
+OrderItemAddon           (orderItemId, addonId, name, price)
+OrderStatus enum         PENDING | CONFIRMED | PREPARING | READY | SERVED |
+                          PAID | COMPLETED | CANCELLED | REJECTED
+
+Review                   (orderId unique, restaurantId, rating, comment,
+                          googleMapsOpenedAt)
+
+Customer                 (restaurantId, name, phone, email;
+                          @@unique([restaurantId, phone]); Order.customerId)
+
+LoyaltyAccount           (customerId unique, points, lifetimeEarned/Redeemed)
+LoyaltyTransaction       (accountId, EARN/REDEEM/ADJUST, points, reason, orderId)
+
+Subscription             (restaurantId unique, plan FREE/STARTER/PRO/ENTERPRISE,
+                          status ACTIVE/CANCELLED; auto-provisioned as FREE)
 ```
 
 Migrations under `prisma/migrations/`:
@@ -995,24 +1469,20 @@ Migrations under `prisma/migrations/`:
 20261008031054_phase4_theme_system
 20261009101341_phase5_tables_qr
 20261009141616_phase6_customer_menu_offers
+20261009143004_phase7_cart_ordering
+20261009155801_phase9_payment_reviews
+20261010063716_phase10_customer_management
+20261010161555_phase12_loyalty_program
+20261011055617_phase13_themes_offers
+20261011074336_phase14_subscriptions
+20261011171552_phase15_multi_branch
 ```
 
-Applied to the local test database (via `test/global-setup.ts`) and the local dev database (`dynamicmenu_dev`). Onboarding progress is NOT stored — it is derived from profile fields plus published-menu existence plus at least one active table (see `computeOnboarding` in restaurants.service.ts). Published menu data lives ONLY in MenuRevision snapshots; the draft tree is the editable working copy. Theme config is presentation-only JSON; theme writes never touch menu tables (integration-tested). QR tokens live on `RestaurantTable`; there is no separate `QRCode` entity.
+Applied to the local test database (via `test/global-setup.ts`) and the local dev database (`dynamicmenu_dev`). Onboarding progress is NOT stored — it is derived from profile fields plus published-menu existence plus at least one active table (see `computeOnboarding` in restaurants.service.ts). Published menu data lives ONLY in MenuRevision snapshots; the draft tree is the editable working copy. Theme config is presentation-only JSON; theme writes never touch menu tables (integration-tested). QR tokens live on `RestaurantTable`; there is no separate `QRCode` entity. The Phase 10 migration backfills `Customer` rows from existing orders (identity = restaurantId + phone) and links `Order.customerId`; new orders upsert the customer automatically.
 
 Remaining planned entities (none implemented yet):
 
 ```text
-Order
-OrderItem
-
-Customer
-CustomerRestaurantProfile
-
-RoyaltyAccount
-Reward
-
-Review
-
 AnalyticsEvent
 Notification
 ```
@@ -1023,7 +1493,7 @@ Do not mark entities as implemented until the actual Prisma schema and database 
 
 # 20. Current API State
 
-**Status:** Phases 1–6 implemented (auth/tenancy, onboarding, menus, themes, tables & QR, customer menu)
+**Status:** Phases 1–14 implemented (auth/tenancy, onboarding, menus, themes, tables & QR, customer menu, cart & ordering, restaurant order management, payment status & reviews, customer management, analytics, loyalty program, advanced themes & offers, SaaS subscriptions)
 
 Express 5 + TypeScript API at `apps/api` with the Phase 0 foundation (health, error envelope per ARCHITECTURE.md §33, zod validation, helmet/cors/rate-limit, pino, Sentry handler) plus:
 
@@ -1064,6 +1534,34 @@ DELETE /api/v1/restaurants/:rid/tables/:tableId      → delete table (MANAGER+)
 
 GET    /api/v1/public/qr/:token                     → resolve QR token → { restaurant, table } (public, rate-limited, 404 INVALID_QR if missing/inactive)
 GET    /api/v1/public/qr/:token/menu               → full customer payload: restaurant + table + published menu snapshot + published theme + active offers (public, rate-limited)
+POST   /api/v1/public/qr/:token/orders             → create table order from cart (public; server recomputes all prices from the published snapshot and checks live availability)
+GET    /api/v1/public/qr/:token/orders/:orderId    → customer order status + review eligibility (public; token → table → order scoped)
+POST   /api/v1/public/qr/:token/orders/:orderId/review → submit/update in-app review; only when order is PAID/COMPLETED (public)
+POST   /api/v1/public/qr/:token/orders/:orderId/review/google → record Google Maps redirect open; returns the restaurant's googleMapsUrl (public)
+
+GET    /api/v1/restaurants/:rid/orders             → list orders w/ optional ?status= filter (STAFF+)
+GET    /api/v1/restaurants/:rid/orders/:orderId    → order detail with items/add-ons/table (STAFF+)
+PATCH  /api/v1/restaurants/:rid/orders/:orderId    → transition order status; validated against ALLOWED_TRANSITIONS map (STAFF+)
+
+GET    /api/v1/restaurants/:rid/customers          → list customers w/ optional ?q= search; STAFF see list without emails
+GET    /api/v1/restaurants/:rid/customers/:cid     → customer detail: order history + insights (favorite item, avg order value); MANAGER+
+
+GET    /api/v1/restaurants/:rid/analytics          → tenant-scoped analytics: overview, daily orders/revenue trends, popular items, top customers, orders by table, status breakdown (?days=1–90); MANAGER+
+
+GET    /api/v1/restaurants/:rid/loyalty/accounts   → loyalty accounts w/ optional ?q= search (MANAGER+)
+POST   /api/v1/restaurants/:rid/loyalty/redeem     → redeem points by customerId or phone; atomic balance check (STAFF+)
+
+GET    /api/v1/restaurants/:rid/offers             → all offers/campaigns (MANAGER+)
+POST   /api/v1/restaurants/:rid/offers             → create offer (discountType/discountValue/startsAt/endsAt optional) (MANAGER+)
+PATCH  /api/v1/restaurants/:rid/offers/:offerId    → edit / activate / deactivate (MANAGER+)
+DELETE /api/v1/restaurants/:rid/offers/:offerId    → delete campaign (MANAGER+)
+
+GET    /api/v1/restaurants/:rid/subscription       → plan, status, usage vs limits, plan catalog (MANAGER+)
+PUT    /api/v1/restaurants/:rid/subscription/plan  → self-serve plan change, no payment collected (OWNER)
+
+GET    /api/v1/restaurants/:rid/branches           → branch list w/ menu+table counts (MANAGER+)
+POST   /api/v1/restaurants/:rid/branches           → create branch (OWNER; root restaurants only)
+GET    /api/v1/restaurants/:rid/analytics?scope=org → organization analytics incl. per-branch breakdown (MANAGER+, analytics feature)
 ```
 
 Request pipeline per RULES.md §6: `requireAuth` (Clerk JWT verification or injected test verifier) → `syncUser` (upsert local User) → `requireMembership(minimumRole)` (tenant lookup server-side; non-member → 404, insufficient role → 403) → entity loaders walk the item → section → menu → restaurant chain so cross-tenant ids 404. Local-dev bypass: `ENABLE_DEV_AUTH=true` trusts `x-dev-clerk-id` / `x-dev-email` headers (never in production, never with a verifier injected).
@@ -1132,6 +1630,89 @@ Status: @sentry/node and @sentry/react wired (activate with SENTRY_DSN / VITE_SE
 ---
 
 # 22. Recent Work
+
+2026-10-12 — Completed and verified Phase 17 (Production Hardening) locally — the full roadmap (Phases 1–17) is now done:
+
+* Security/logging: audit found request logs were writing full bearer/dev-auth tokens — pino serializers now redact `authorization` and `x-dev-*` headers (verified live against a running server). Public order/review writes got a dedicated 30/min/IP limiter. `NODE_ENV=production` without `DATABASE_URL` now fails fast at boot.
+* Error handling: oversized JSON bodies were surfacing as 500 → now `413 PAYLOAD_TOO_LARGE`; malformed JSON → `400 INVALID_JSON` (error-handler maps body-parser error types).
+* Performance/SEO: customer QR routes lazy-loaded (`/q/*` chunks ≈ 19 KB + 5 KB + 1 KB vs the 670 KB main bundle); customer pages set `document.title` to the restaurant name.
+* Deployment: render.yaml build now runs `prisma migrate deploy`; ESLint default-project cap raised 20 → 40 for the 21-file test suite.
+* Validation: new `hardening.test.ts` (6 tests: security headers, error envelope, rate-limit headers, 413/400 bodies, 401s); full suite at 125 tests; 13-checkpoint end-to-end chain across the entire product loop all PASS.
+* Documented as pending (not faked): Sentry DSN, hosted provisioning, backup automation, deeper a11y/DB tuning.
+
+2026-10-12 — Completed and verified Phase 16 (Integrations) locally:
+
+* Requirements audit: PRD.md/PHASES.md/ARCHITECTURE.md reviewed for specified integrations. The only specified external integration is Google Maps review redirection (ARCHITECTURE.md review flow); PHASES.md §20's payment gateways, POS, KDS, WhatsApp, SMS, email, Google Business, inventory, accounting, and CRM are listed as "potential future" — none were implemented, per the instruction to only build specified/approved integrations.
+* Integration layer established at `apps/api/src/integrations/google-maps.ts`: one module per provider, domain services call the module (ARCHITECTURE.md §46 constraint 11). The review domain's redirect now flows through `reviewRedirectUrl()`.
+* Security hardening: `normalizeGoogleMapsUrl` allows only https on Google-owned hosts — a restaurant storing a non-Google `googleMapsUrl` can no longer turn the review redirect into an open redirect; the API returns `googleMapsUrl: null` instead.
+* Verified: typecheck, lint, 119 tests (105 API + 14 web), build; new `apps/api/test/integrations.test.ts` covers the allow-list (incl. subdomain-spoof and http rejection) and the end-to-end null-redirect behavior.
+
+2026-10-11 — Completed and verified Phase 15 (Multi-Branch Restaurants) locally:
+
+* Prisma: `Restaurant.parentId` self-relation (a branch is a child restaurant, one level deep) + migration `20261011171552_phase15_multi_branch`.
+* Branches: `GET/POST /restaurants/:rid/branches` (MANAGER+ list with menu/table counts; OWNER create; `BRANCH_OF_BRANCH` guards nesting; slug uniqueness enforced). The creating owner gets explicit branch membership.
+* Staff access: `requireMembership` falls back to the parent restaurant's membership — org members manage every branch with their own role; `GET /restaurants` includes accessible branches (deduped against explicit memberships) so the workspace picker switches between root and branches.
+* Organization plan & analytics: the subscription resolves to the root (one plan per org, usage still per branch); `GET /analytics?scope=org` aggregates root + branches with a `byBranch` breakdown (dashboard renders a "By branch" card).
+* Dashboard: `/dashboard/branches` list + create form (nav link); branch page redirects context when opened on a branch.
+* Verified: typecheck, lint, 114 tests (100 API + 14 web), build, HTTP smoke (branch create → deduped workspace list → inherited branch table create → org `byBranch` analytics after upgrade), web `vite preview` on `/dashboard/branches`.
+
+2026-10-11 — Completed and verified Phase 14 (SaaS & Commercial Features) locally:
+
+* Prisma: `Subscription` model (restaurantId unique, plan, status) + Plan/SubscriptionStatus enums + migration `20261011074336_phase14_subscriptions` with FREE backfill for existing restaurants. Subscriptions auto-provision as FREE on first access.
+* Entitlements: static plan catalog (`modules/billing/plans.ts` — FREE/STARTER/PRO/ENTERPRISE with limits + feature flags) enforced centrally via `billing.service` (`assertCanCreate` → 402 `PLAN_LIMIT_REACHED` on tables/menus/offers; `assertFeature` → 403 `PLAN_FEATURE_LOCKED` on analytics and Loyalty Program; loyalty earning silently skips when not entitled).
+* Account management: `GET /subscription` (usage + plan catalog, MANAGER+) and `PUT /subscription/plan` (OWNER, instant self-serve); `/dashboard/billing` page with usage bars and plan cards; nav link.
+* Billing: intentionally NOT integrated — the project requirements define no billing provider, so plan changes collect no payment and prices are display-only.
+* Verified: typecheck, lint, 107 tests (93 API + 14 web), build, HTTP smoke (FREE → 402 on 4th table + 403 analytics → upgrade PRO → both unblocked), web `vite preview` on `/dashboard/billing`. analytics/loyalty test suites updated to provision PRO subscriptions at the entitlement gates.
+
+2026-10-11 — Completed and verified Phase 13 (Advanced Themes & Offers) locally:
+
+* Prisma: `Offer` gains `discountType` (PERCENT/FLAT), `discountValue`, `startsAt`/`endsAt`; `Order` gains `subtotal` (backfilled via migration SQL added before first application), `discount`, `offerId`; migration `20261011055617_phase13_themes_offers`.
+* Offers engine: schedule-aware public listing, `bestActiveDiscount` (largest live discount wins), full MANAGER+ CRUD with discount/schedule validation; order creation auto-applies the best campaign server-side and stores `subtotal`/`discount`/`offerId`.
+* Web: `/dashboard/offers` campaign manager (create/edit form with discount + datetime schedule, activate/deactivate, delete confirm); nav "Offers" link; offer banners show discount text; cart drawer and order detail show the applied saving.
+* Themes: 4 seasonal presets (Diwali Lights, Christmas Eve, Eid Celebration, Halloween Night); `ThemeConfig` gains `heroText` + `layoutStyle` (list/grid) with zod defaults so older saved configs still validate; editor controls; customer menu renders hero text and grid layout.
+* Verified: typecheck, lint, 101 tests (87 API + 14 web), build, HTTP smoke (10% offer auto-applied 500 → 450; 2030-dated campaign hidden from the public menu), web `vite preview` on `/dashboard/offers`.
+
+2026-10-10 — Completed and verified Phase 12 (Loyalty Program) locally:
+
+* Prisma: `LoyaltyAccount` (customerId unique, points, lifetimeEarned/Redeemed) + `LoyaltyTransaction` (EARN/REDEEM/ADJUST, reason, orderId) + migration `20261010161555_phase12_loyalty_program`. The migrate run required a dev-DB reset because the phase10 migration file had been edited after application (recorded in Known Issues).
+* Earning: 1 point per 100 spent (floored), awarded inside `transitionOrder` when an order enters `PAID`; `awardPointsForOrder` is idempotent per order (existing EARN transaction check), so retries and PAID→COMPLETED never double-award.
+* API: `GET /loyalty/accounts` (MANAGER+, optional `?q=` search) and `POST /loyalty/redeem` (STAFF+, by customerId or phone, atomic balance check, `LOYALTY_INSUFFICIENT_POINTS` on over-redemption).
+* Web: `/dashboard/loyalty` — counter redemption form for staff, searchable account list with balances for managers; customer order tracking page shows the customer's points; customer detail dialog shows balance + transaction history.
+* Verified: typecheck, lint, 95 tests (81 API + 14 web), build, HTTP smoke (900-spend order → 9 pts → redeem 3 → 6 pts on tracking page), web `vite preview` on `/dashboard/loyalty`.
+
+2026-10-10 — Completed and verified Phase 11 (Analytics) locally:
+
+* API: `GET /restaurants/:rid/analytics?days=N` (MANAGER+, N clamped 1–90) computing live from tenant-scoped rows — overview (counted orders, revenue from PAID/COMPLETED, average order value, total/repeat customers, review count + average rating), a zero-filled UTC-aligned daily orders/revenue series, top 8 items by quantity, top 5 customers by spend, orders per table, and in-range status breakdown. Cancelled/rejected orders are excluded from every metric except the raw status breakdown.
+* Web: `/dashboard/analytics` — 7/14/30-day range selector, overview stat cards, per-day bar chart, and list cards for popular items, top customers, orders by table, and status breakdown. Dashboard nav "Analytics" is now live.
+* Tenant isolation: every query is filtered by `restaurantId`; the cross-tenant test proves another restaurant sees zeros, never foreign rows.
+* Verified: typecheck, lint, 88 tests (74 API + 14 web), build, HTTP smoke (orders + paid + review → correct revenue/rating/item metrics), web `vite preview` on `/dashboard/analytics`.
+
+2026-10-10 — Completed and verified Phase 10 (Customer Management) locally:
+
+* Prisma: `Customer` model (restaurant-scoped, `@@unique([restaurantId, phone])`), `Order.customerId`, and migration `20261010063716_phase10_customer_management` — including a SQL backfill that creates customer profiles from existing orders and links `Order.customerId` (also applied manually to the dev DB).
+* API: `GET /restaurants/:rid/customers` (STAFF+, optional `?q=` search over name/phone/email, emails hidden from STAFF) and `GET /restaurants/:rid/customers/:cid` (MANAGER+) returning order count, total spent, average order value, favorite item, first/last order dates, and the 20 most recent orders. Order creation now upserts the customer by restaurant + phone inside the same transaction.
+* Web: `/dashboard/customers` — debounced search, customer cards (name, phone, spend, order count, last visit), and a detail dialog with insight stats and order history; STAFF see a read-only list without detail access.
+* Verified: typecheck, lint, 83 tests (69 API + 14 web), build, HTTP smoke (two orders from one phone → aggregated customer profile with favorite item; search narrows results), web `vite preview` on `/dashboard/customers`.
+
+2026-10-10 — Completed and verified Phase 9 (Payment Status & Reviews) locally:
+
+* Prisma: `Review` model (`orderId` unique, `restaurantId`, `rating` 1–5, `comment`, `googleMapsOpenedAt`) + migration `20261009155801_phase9_payment_reviews` on dev + test databases.
+* API: customer order status at `GET /public/qr/:token/orders/:orderId` (token → table → order scoped, returns status/total/restaurant Google URL/review eligibility/existing review); `POST .../review` submits feedback (eligible only when order is PAID or COMPLETED, one review per order via idempotent upsert); `POST .../review/google` records that the customer opened the Google Maps link and returns the URL — it never claims a review was posted.
+* Web: `/q/:token/order/:orderId` order tracking page with 5-second polling, human-readable status, star-rating + comment form shown only after payment, Google Maps button after feedback, and explicit copy that a posted Google review cannot be confirmed; cart drawer now links to the tracking page.
+* Verified: typecheck, lint, 77 tests (63 API + 14 web), build, HTTP smoke (lifecycle to PAID → status shows eligible → review submitted → Google click tracked), web `vite preview` on the order page.
+
+2026-10-09 — Completed and verified Phase 8 (Restaurant Order Management) locally:
+
+* API: order management endpoints under `/api/v1/restaurants/:restaurantId/orders` (STAFF+ per ARCHITECTURE.md §26): GET list with optional `?status=` filter, GET detail with items/add-ons/table, PATCH status with a backend `ALLOWED_TRANSITIONS` state machine (PENDING→CONFIRMED→PREPARING→READY→SERVED→PAID→COMPLETED; CANCELLED/REJECTED terminal; REJECTED only from PENDING). Invalid moves return 400 `ORDER_INVALID_TRANSITION`.
+* Web: `/dashboard/orders` — status filter tabs, order cards (table, customer, item count, total, status badge), order detail dialog with item lines, variants, add-ons, customer info, and buttons for each allowed next state; auto-refresh polling every 5 seconds. Dashboard nav "Orders" is now live.
+* Verified: typecheck, lint, 71 tests (57 API + 14 web), build, HTTP smoke (public order → list → confirm → invalid rollback rejected), web `vite preview` on `/dashboard/orders`.
+
+2026-10-09 — Completed and verified Phase 7 (Cart & Ordering) locally:
+
+* Prisma: `Order`, `OrderItem`, `OrderItemAddon` models + `OrderStatus` enum + migration `20261009143004_phase7_cart_ordering` on dev + test databases.
+* API: `POST /api/v1/public/qr/:token/orders` (public, rate-limited). The frontend sends only item/variant/add-on IDs, quantities, and customer info; the backend resolves the QR token to a table, loads the published `MenuRevision` snapshot for pricing, validates live `isAvailable` flags against the menu tables, recomputes every line subtotal and the order total, and writes the order as `PENDING`.
+* Web: `CartProvider`/`useCart` state with add/merge, quantity update, remove, and clear; floating cart button with item count and total; bottom-sheet cart drawer with per-line quantities, order summary, and a checkout form (name + phone required); order confirmation screen that clears the cart. Item detail dialog now adds selections to the cart instead of just acknowledging.
+* Verified: typecheck, lint, 64 tests (50 API + 14 web), build, HTTP smoke (create menu → publish → table → POST `/public/qr/:token/orders` returns correct total), web `vite preview` on `/q/:token`.
 
 2026-10-09 — Completed and verified Phase 6 (Customer Menu) locally:
 
@@ -1272,15 +1853,19 @@ Restaurant is the primary tenant boundary.
 The immediate next action is:
 
 ```text
-Phase 6 complete locally
+Phases 1–17 complete locally (full roadmap)
         ↓
 Obtain hosted credentials (Neon, Clerk, Sentry)
         ↓
-Verify real sign-in + database connectivity in a browser
+Provision Vercel + Render, run migrations on Neon
         ↓
-Commit, push, confirm CI passes
+Swap local-disk image storage for object storage (S3/R2)
         ↓
-Begin Phase 7 — Cart & Ordering
+Configure backups (Neon PITR / scheduled pg_dump)
+        ↓
+Verify real sign-in + full flows in the browser, confirm CI
+        ↓
+Production launch on dynamicmenu.store
 ```
 
 ---
@@ -1291,7 +1876,7 @@ Begin Phase 7 — Cart & Ordering
 No blockers recorded.
 ```
 
-Hosted credentials (Neon, Clerk) are pending user action but do not block local Phase 7 development.
+Hosted credentials (Neon, Clerk, Sentry) are now the only blocker between the completed local build and production launch.
 ```
 
 ---
@@ -1317,13 +1902,24 @@ Phase 3 menu mgmt      → Implemented & verified (local; publish-snapshot model
 Phase 4 themes         → Implemented & verified (local; menu-data integrity tested)
 Phase 5 tables & QR    → Implemented & verified (local; QR token security tested)
 Phase 6 customer menu  → Implemented & verified (local; published-snapshot + theme rendering tested)
-Database (Prisma)      → Six migrations applied on local dev + test Postgres; awaiting Neon URL
+Phase 7 cart/ordering  → Implemented & verified (local; server-recomputed prices + live availability tested)
+Phase 8 order mgmt     → Implemented & verified (local; state machine + dashboard order board tested)
+Phase 9 pay & reviews  → Implemented & verified (local; review eligibility + redirect-only Google tracking)
+Phase 10 customers     → Implemented & verified (local; auto-linked profiles, insights, role-limited access)
+Phase 11 analytics     → Implemented & verified (local; tenant-isolated metrics, trends, item/customer/table stats)
+Phase 12 loyalty       → Implemented & verified (local; idempotent earning, atomic redemption, full ledger)
+Phase 13 themes/offers → Implemented & verified (local; seasonal presets, scheduled campaigns, server-side discounts)
+Phase 14 SaaS          → Implemented & verified (local; subscriptions, plan limits, feature gates, self-serve plan changes)
+Phase 15 multi-branch  → Implemented & verified (local; branches as child tenants, inherited staff access, org analytics)
+Phase 16 integrations  → Implemented & verified (local; integration layer + Google Maps behind module, open-redirect closed)
+Phase 17 hardening     → Implemented & verified (local; 125 tests, E2E 13/13 — full roadmap complete)
+Production system      → Ready for provisioning; awaits Neon/Clerk/Sentry credentials + object storage
+Database (Prisma)      → Thirteen migrations applied on local dev + test Postgres; awaiting Neon URL
 Authentication (Clerk) → Code complete; awaiting Clerk application keys
 Monitoring (Sentry)    → Wired; awaiting DSN
 Deployment             → Config files ready; not provisioned
 Project domain         → dynamicmenu.store (production web base URL; env + render.yaml updated)
 Image storage          → Local-disk provider behind ImageStorage interface; swap before production
-Production system      → Not started
 ```
 
 ---
@@ -1331,6 +1927,17 @@ Production system      → Not started
 # 28. Last Updated
 
 ```text
+2026-10-12 — Phase 17 (Production Hardening) implemented and verified locally — full roadmap (Phases 1–17) complete: request logs no longer write auth tokens (pino redaction, verified live); public writes rate-limited 30/min/IP; production boot fails fast without DATABASE_URL; oversized/malformed JSON return 413/400; customer QR routes code-split (~19 KB chunk vs 670 KB main); per-page document titles; render build runs migrations; hardening test suite added; 125 tests passing (111 API + 14 web); 13-checkpoint end-to-end validation all PASS. Pending (documented, not faked): hosted credentials, object storage, backup automation. Production domain remains dynamicmenu.store.
+2026-10-12 — Phase 16 (Integrations) implemented and verified locally: requirements audit confirmed Google Maps review redirection is the only specified external integration (all PHASES.md §20 categories are "potential future" — none built); integration layer established at apps/api/src/integrations/google-maps.ts with Google-host allow-list closing an open-redirect hole on the stored googleMapsUrl (non-Google URLs now yield a null redirect); reviews domain routed through the module; 119 tests passing (105 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-11 — Phase 15 (Multi-Branch Restaurants) implemented and verified locally: Restaurant.parentId self-relation (branch = child restaurant, one level) + migration 20261011171552_phase15_multi_branch; GET/POST branches with BRANCH_OF_BRANCH + slug guards; parent-membership inheritance in requireMembership for cross-branch staff access; deduped branch entries in GET /restaurants; root subscription shared per organization; analytics ?scope=org with byBranch breakdown; /dashboard/branches page; 114 tests passing (100 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-11 — Phase 14 (SaaS & Commercial Features) implemented and verified locally: Subscription model (one per restaurant, auto-FREE) + Plan enum + migration 20261011074336_phase14_subscriptions with FREE backfill; static plan catalog FREE/STARTER/PRO/ENTERPRISE with usage limits (tables/menus/offers → 402 PLAN_LIMIT_REACHED) and feature gates (analytics/loyalty → 403 PLAN_FEATURE_LOCKED); GET /subscription (MANAGER+) + OWNER self-serve plan change; /dashboard/billing page; no billing provider integrated (not defined by project requirements); 107 tests passing (93 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-11 — Phase 13 (Advanced Themes & Offers) implemented and verified locally: Offer discount fields (PERCENT/FLAT) + startsAt/endsAt scheduling + Order subtotal/discount/offerId + migration 20261011055617_phase13_themes_offers with subtotal backfill; server-side best-discount auto-application at order creation; schedule-aware public menu display; /dashboard/offers CRUD (MANAGER+); 4 seasonal theme presets (Diwali, Christmas, Eid, Halloween) + heroText + list/grid layoutStyle; 101 tests passing (87 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-10 — Phase 12 (Loyalty Program) implemented and verified locally: LoyaltyAccount + LoyaltyTransaction models + migration 20261010161555_phase12_loyalty_program; earning rule 1 point per 100 spent awarded idempotently inside the PAID order transition (per-order EARN transaction guard); counter redemption endpoint (STAFF+) with atomic balance checks; accounts list (MANAGER+); /dashboard/loyalty page; points on customer tracking page and loyalty history in customer detail; 95 tests passing (81 API + 14 web). Dev DB reset during migration (edited phase10 migration file) — recorded in Known Issues. Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-10 — Phase 11 (Analytics) implemented and verified locally: GET /restaurants/:rid/analytics (MANAGER+, days 1–90) computing tenant-isolated overview metrics (counted orders, PAID/COMPLETED revenue, average order value, repeat customers, review averages), UTC-aligned daily orders/revenue trends, popular items, top customers, orders-by-table, and status breakdowns; /dashboard/analytics page with range selector, stat cards, bar chart, and list cards; 88 tests passing (74 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-10 — Phase 10 (Customer Management) implemented and verified locally: Customer model (restaurant-scoped, unique by restaurant+phone) + Order.customerId + migration 20261010063716_phase10_customer_management with SQL backfill from existing orders; customer upsert on order creation; customers list API with ?q= search (STAFF+, emails hidden) and detail API with order history + insights (MANAGER+); /dashboard/customers page with debounced search, customer cards, and detail dialog; 83 tests passing (69 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-10 — Phase 9 (Payment Status & Reviews) implemented and verified locally: Review schema (orderId unique, rating 1-5, comment, googleMapsOpenedAt) + migration 20261009155801_phase9_payment_reviews, customer order status endpoint scoped token→table→order, review eligibility at PAID/COMPLETED, one-review-per-order upsert, Google Maps redirect tracked as open-event only (never claiming a posted review), /q/:token/order/:orderId tracking page with review prompt; 77 tests passing (63 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-09 — Phase 8 (Restaurant Order Management) implemented and verified locally: order list/detail/transition APIs under `/restaurants/:rid/orders` (STAFF+) with a backend ALLOWED_TRANSITIONS state machine (PENDING→CONFIRMED→PREPARING→READY→SERVED→PAID→COMPLETED, CANCELLED/REJECTED terminal), /dashboard/orders order board with status filters, detail dialog, transition buttons, and 5-second polling; 71 tests passing (57 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
+2026-10-09 — Phase 7 (Cart & Ordering) implemented and verified locally: Order/OrderItem/OrderItemAddon schema + OrderStatus enum + migration 20261009143004_phase7_cart_ordering, public POST `/api/v1/public/qr/:token/orders` that recomputes all prices from the published MenuRevision snapshot and validates live availability, table association from the QR token, customer name/phone required; web CartProvider with cart button, bottom-sheet drawer, quantity controls, checkout form, and order confirmation; 64 tests passing (50 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
 2026-10-09 — Phase 6 (Customer Menu) implemented and verified locally: Offer model (restaurantId, title, description, badgeText, imageUrl, isActive, position) + migration 20261009141616_phase6_customer_menu_offers, public `/api/v1/public/qr/:token/menu` endpoint returning restaurant + table + published MenuRevision snapshot + published theme + active offers, mobile-first `/q/:token` customer menu with loading/error/empty states, sticky category nav, offer banners, food cards, and item detail dialog with variants/add-ons/price calculation, theme rendering via unit-tested `themeToTokens`, tenant-isolation and no-ID-leak tests, 57 tests passing (43 API + 14 web). Production domain remains dynamicmenu.store. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
 2026-10-09 — Phase 5 (Tables & QR) implemented and verified locally: RestaurantTable schema (restaurantId, label, qrToken unique, isActive) + migration 20261009101341_phase5_tables_qr, tables CRUD + rotate-token API (MANAGER+), public `/api/v1/public/qr/:token` resolver (unauthenticated, 404 `INVALID_QR` for missing/inactive/rotated tokens), `/dashboard/tables` management UI with QR preview/download, `/q/:token` customer landing page, onboarding "Active table" step (8 total), tenant-security and QR-invalidation tests, 52 tests passing (38 API + 14 web). Production domain set to dynamicmenu.store; .env.example and render.yaml updated. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.
 2026-10-08 — Phase 4 (Theme System) implemented and verified locally: RestaurantTheme schema (draft/published config JSON) + migration 20261008031054_phase4_theme_system, 4 built-in presets (Modern Minimal, Midnight Luxury, Traditional Indian, Festive), theme APIs (GET/PUT/publish/preview/image, MANAGER+), /dashboard/themes gallery + editor + live customer-menu preview via unit-tested themeToTokens CSS variables, theme save+publish proven byte-identical to menu rows + MenuRevision snapshots, 45 tests passing. Awaiting user-provided credentials for Neon, Clerk, Sentry, Vercel, Render.

@@ -13,7 +13,7 @@ There are two user experiences:
 - **Restaurant dashboard** (owners/managers/staff): onboarding, menu CMS, themes, offers, tables & QR, orders, customers, loyalty, analytics.
 - **Customer menu** (mobile-first, no account required): QR scan → published menu → cart → order → review prompt.
 
-**Current state: Phase 6 — Customer Menu complete and verified locally; hosted services (Neon, Clerk, Sentry, Vercel, Render) await credentials. See `MEMORY.md` for the authoritative record.** Never assume a framework, file, or service exists until you verify it in the repo.
+**Current state: Phase 17 — Production Hardening complete and verified locally; the full roadmap (Phases 1–17) is done. Hosted services (Neon, Clerk, Sentry, Vercel, Render) await credentials before production launch on dynamicmenu.store. See `MEMORY.md` for the authoritative record.** Never assume a framework, file, or service exists until you verify it in the repo.
 
 ### Planned technology stack
 
@@ -152,4 +152,4 @@ Additional requirements (`RULES.md` §9, `ARCHITECTURE.md` §27):
 - Ask before proceeding when requirements conflict or a decision is materially ambiguous.
 - After any change: sweep for comments/docstrings describing old behavior and update them; update `MEMORY.md`; keep `AGENTS.md` accurate if project guidance changes.
 
-Last reviewed: 2026-10-09 (project at Phase 6 complete locally — customer menu with published menu snapshots, theme rendering, category navigation, item details with variants/add-ons, and offers; hosted credentials pending).
+Last reviewed: 2026-10-12 (project at Phase 17 complete locally — full roadmap done; hardening closed real findings: auth-token log redaction, 413/400 body errors, per-IP write limits, fail-fast production env, customer-bundle code split; 125 tests + 13-checkpoint E2E validation green; hosted credentials pending).

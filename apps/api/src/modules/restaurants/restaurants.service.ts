@@ -34,9 +34,14 @@ export async function createRestaurant(
   });
 }
 
-/** Restaurants the user belongs to, with their role in each. */
+/**
+ * Restaurants the user can access, with their role in each. Includes the
+ * branches of any root restaurant the user belongs to (Phase 15): parent
+ * members inherit branch access, so the branches appear in their workspace
+ * switcher with the same role.
+ */
 export async function listMyRestaurants(userId: string) {
-  return prisma.restaurantMembership.findMany({
+  const memberships = await prisma.restaurantMembership.findMany({
     where: { userId },
     orderBy: { createdAt: "asc" },
     select: {
@@ -47,10 +52,96 @@ export async function listMyRestaurants(userId: string) {
           name: true,
           slug: true,
           status: true,
+          parentId: true,
           createdAt: true,
         },
       },
     },
+  });
+
+  const rootIds = memberships.map((m) => m.restaurant.id);
+  const branches = rootIds.length
+    ? await prisma.restaurant.findMany({
+        where: { parentId: { in: rootIds } },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          status: true,
+          parentId: true,
+          createdAt: true,
+        },
+      })
+    : [];
+
+  const roleByRoot = new Map(rootIds.map((id, i) => [id, memberships[i]!.role]));
+  const seen = new Set(memberships.map((m) => m.restaurant.id));
+  const branchEntries = branches
+    .filter((branch) => !seen.has(branch.id))
+    .map((branch) => ({
+      role: roleByRoot.get(branch.parentId!) ?? ("STAFF" as const),
+      restaurant: branch,
+    }));
+
+  return [...memberships, ...branchEntries];
+}
+
+/** Branches of a restaurant (one level deep). */
+export async function listBranches(restaurantId: string) {
+  return prisma.restaurant.findMany({
+    where: { parentId: restaurantId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      status: true,
+      createdAt: true,
+      _count: { select: { tables: true, menus: true } },
+    },
+  });
+}
+
+/**
+ * Create a branch: a full child restaurant (own menus/tables/orders/customers,
+ * preserving tenant isolation) whose members inherit access from the parent.
+ * Branches can only be created under root restaurants, one level deep.
+ */
+export async function createBranch(
+  userId: string,
+  parentId: string,
+  input: CreateRestaurantInput
+) {
+  const parent = await prisma.restaurant.findUnique({
+    where: { id: parentId },
+    select: { parentId: true },
+  });
+  if (!parent || parent.parentId) {
+    throw new ApiError(
+      400,
+      "BRANCH_OF_BRANCH",
+      "Branches can only be created under the main restaurant."
+    );
+  }
+  const existing = await prisma.restaurant.findUnique({
+    where: { slug: input.slug },
+    select: { id: true },
+  });
+  if (existing) {
+    throw new ApiError(409, "SLUG_TAKEN", "This restaurant URL name is already taken.");
+  }
+
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const branch = await tx.restaurant.create({
+      data: { name: input.name, slug: input.slug, parentId },
+    });
+    // The creating owner gets explicit branch membership; other parent
+    // members inherit access through the parent chain.
+    await tx.restaurantMembership.create({
+      data: { userId, restaurantId: branch.id, role: "OWNER" },
+    });
+    return branch;
   });
 }
 

@@ -94,6 +94,7 @@ export function CustomerMenuShell({ data }: Props) {
           <CustomerMenuSections
             sections={visibleSections}
             sectionRefs={sectionRefs}
+            layoutStyle={theme.layoutStyle}
           />
         ) : (
           <CustomerEmptyMenu />

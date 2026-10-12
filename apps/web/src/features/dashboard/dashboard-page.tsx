@@ -10,12 +10,15 @@ import { RestaurantSelector } from "./restaurant-selector";
 const NAV_ITEMS: { label: string; to?: string }[] = [
   { label: "Overview", to: "/dashboard" },
   { label: "Menus", to: "/dashboard/menus" },
-  { label: "Orders" },
-  { label: "Offers" },
+  { label: "Orders", to: "/dashboard/orders" },
+  { label: "Offers", to: "/dashboard/offers" },
   { label: "Themes", to: "/dashboard/themes" },
   { label: "QR & Tables", to: "/dashboard/tables" },
-  { label: "Customers" },
-  { label: "Analytics" },
+  { label: "Customers", to: "/dashboard/customers" },
+  { label: "Analytics", to: "/dashboard/analytics" },
+  { label: "Loyalty", to: "/dashboard/loyalty" },
+  { label: "Billing", to: "/dashboard/billing" },
+  { label: "Branches", to: "/dashboard/branches" },
   { label: "Settings", to: "/dashboard/settings" },
 ];
 

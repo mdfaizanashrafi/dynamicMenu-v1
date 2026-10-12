@@ -36,6 +36,33 @@ export function errorHandler(
     return;
   }
 
+  // express.json body errors: oversized payloads and malformed JSON should
+  // be client errors, not 500s (Phase 17 error-handling audit).
+  const bodyErrorType =
+    err !== null && typeof err === "object" && "type" in err
+      ? (err as { type?: string }).type
+      : undefined;
+  if (bodyErrorType === "entity.too.large") {
+    res.status(413).json({
+      success: false,
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "The request body exceeds the 1 MB limit.",
+      },
+    } satisfies ErrorBody);
+    return;
+  }
+  if (bodyErrorType === "entity.parse.failed") {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: "INVALID_JSON",
+        message: "The request body is not valid JSON.",
+      },
+    } satisfies ErrorBody);
+    return;
+  }
+
   if (err instanceof MulterError) {
     res.status(400).json({
       success: false,

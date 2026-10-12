@@ -22,6 +22,9 @@ export interface ThemeConfig {
     cornerFlourish: boolean;
   };
   coverImageUrl: string | null;
+  /** Phase 13 — advanced customization. */
+  layoutStyle: "list" | "grid";
+  heroText: string | null;
 }
 
 export interface ThemePreset {
@@ -39,6 +42,8 @@ const BASE = {
   headerStyle: "logo",
   decorations: { garland: false, cornerFlourish: false },
   coverImageUrl: null,
+  layoutStyle: "list",
+  heroText: null,
 } as const;
 
 export const THEME_PRESETS: ThemePreset[] = [
@@ -116,6 +121,99 @@ export const THEME_PRESETS: ThemePreset[] = [
         background: "#FEF3C7",
         surface: "#FFFFFF",
         text: "#7F1D1D",
+      },
+    },
+  },
+  // ── Seasonal presets (Phase 13) ──────────────────────────────────────
+  {
+    key: "diwali",
+    name: "Diwali Lights",
+    description: "Festive marigold and diya-glow ambers with garlands.",
+    config: {
+      ...BASE,
+      preset: "diwali",
+      headingFont: "serif",
+      cardStyle: "elevated",
+      buttonStyle: "pill",
+      backgroundStyle: "pattern",
+      headerStyle: "banner",
+      decorations: { garland: true, cornerFlourish: true },
+      heroText: "Happy Diwali!",
+      colors: {
+        primary: "#EA580C",
+        secondary: "#B45309",
+        background: "#FFF7ED",
+        surface: "#FFEDD5",
+        text: "#431407",
+      },
+    },
+  },
+  {
+    key: "christmas",
+    name: "Christmas Eve",
+    description: "Deep pine greens with cranberry accents and garlands.",
+    config: {
+      ...BASE,
+      preset: "christmas",
+      headingFont: "serif",
+      cardStyle: "soft",
+      buttonStyle: "pill",
+      backgroundStyle: "gradient",
+      headerStyle: "banner",
+      decorations: { garland: true, cornerFlourish: false },
+      heroText: "Merry Christmas!",
+      colors: {
+        primary: "#16A34A",
+        secondary: "#991B1B",
+        background: "#F0FDF4",
+        surface: "#FFFFFF",
+        text: "#14532D",
+      },
+    },
+  },
+  {
+    key: "eid",
+    name: "Eid Celebration",
+    description: "Midnight green with gold crescent accents.",
+    config: {
+      ...BASE,
+      preset: "eid",
+      headingFont: "serif",
+      cardStyle: "outlined",
+      buttonStyle: "pill",
+      backgroundStyle: "gradient",
+      headerStyle: "banner",
+      decorations: { garland: false, cornerFlourish: true },
+      heroText: "Eid Mubarak!",
+      colors: {
+        primary: "#0F766E",
+        secondary: "#D4AF37",
+        background: "#F0FDFA",
+        surface: "#FFFFFF",
+        text: "#134E4A",
+      },
+    },
+  },
+  {
+    key: "halloween",
+    name: "Halloween Night",
+    description: "Pumpkin oranges on a spooky purple-black gradient.",
+    config: {
+      ...BASE,
+      preset: "halloween",
+      headingFont: "rounded",
+      cardStyle: "elevated",
+      buttonStyle: "pill",
+      backgroundStyle: "gradient",
+      headerStyle: "banner",
+      decorations: { garland: true, cornerFlourish: false },
+      heroText: "Spooky specials inside…",
+      colors: {
+        primary: "#F97316",
+        secondary: "#7E22CE",
+        background: "#1E1B2E",
+        surface: "#2D2A3E",
+        text: "#FDE68A",
       },
     },
   },

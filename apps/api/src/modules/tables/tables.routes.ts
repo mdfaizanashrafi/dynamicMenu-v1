@@ -8,6 +8,7 @@ import { asyncHandler } from "../../utils/async-handler.js";
 import { prisma } from "../../lib/prisma.js";
 import { createTable, deleteTable, listTables, updateTable } from "./tables.service.js";
 import { createTableSchema, updateTableSchema } from "./tables.schemas.js";
+import { assertCanCreate } from "../billing/billing.service.js";
 
 const tableParams = z.object({ tableId: z.string().min(1) });
 
@@ -47,6 +48,7 @@ export function createTablesRouter(requireAuth: RequestHandler): Router {
     validate({ body: createTableSchema }),
     asyncHandler(async (req: Request, res: Response) => {
       const { restaurantId } = req.params as { restaurantId: string };
+      await assertCanCreate(restaurantId, "tables", "tables");
       const table = await createTable(restaurantId, req.body);
       res.status(201).json({ success: true, data: table });
     })

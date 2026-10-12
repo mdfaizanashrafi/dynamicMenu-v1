@@ -6,7 +6,7 @@ services:
     name: dynamicmenu-api
     runtime: node
     rootDir: apps/api
-    buildCommand: npm ci && npm run db:generate && npm run build
+    buildCommand: npm ci && npm run db:generate && npm run db:deploy -w @dynamicmenu/api && npm run build
     startCommand: npm run start
     healthCheckPath: /api/v1/health
     envVars:

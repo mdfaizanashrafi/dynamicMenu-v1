@@ -4,6 +4,8 @@ export interface RestaurantSummary {
   name: string;
   slug: string;
   status: string;
+  /** Set when this entry is a branch of another restaurant (Phase 15). */
+  parentId?: string | null;
   createdAt: string;
 }
 

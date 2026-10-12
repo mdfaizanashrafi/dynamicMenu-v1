@@ -21,6 +21,8 @@ export interface ThemeConfig {
     cornerFlourish: boolean;
   };
   coverImageUrl: string | null;
+  layoutStyle: "list" | "grid";
+  heroText: string | null;
 }
 
 export interface ThemePreset {

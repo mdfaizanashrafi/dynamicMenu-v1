@@ -25,6 +25,7 @@ import {
   updateMenu,
   updateSection,
 } from "./menus.service.js";
+import { assertCanCreate } from "../billing/billing.service.js";
 import {
   createItemSchema,
   createMenuSchema,
@@ -105,6 +106,7 @@ export function createMenusRouter(requireAuth: RequestHandler): Router {
     validate({ body: createMenuSchema }),
     asyncHandler(async (req: Request, res: Response) => {
       const { restaurantId } = req.params as { restaurantId: string };
+      await assertCanCreate(restaurantId, "menus", "menus");
       const menu = await createMenu(restaurantId, req.body);
       res.status(201).json({ success: true, data: menu });
     })

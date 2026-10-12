@@ -21,6 +21,9 @@ export const themeConfigSchema = z.object({
     cornerFlourish: z.boolean(),
   }),
   coverImageUrl: z.url().nullable(),
+  // Phase 13 additions; defaults keep configs saved before this phase valid.
+  layoutStyle: z.enum(["list", "grid"]).default("list"),
+  heroText: z.string().trim().max(80).nullable().default(null),
 });
 
 export type ThemeConfigInput = z.infer<typeof themeConfigSchema>;

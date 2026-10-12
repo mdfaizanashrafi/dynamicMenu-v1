@@ -11,9 +11,15 @@ interface Props {
   item: CustomerMenuItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAddToCart?: (
+    item: CustomerMenuItem,
+    variant: CustomerMenuItemVariant | null,
+    addons: { id: string; name: string; price: number }[],
+    quantity: number
+  ) => void;
 }
 
-export function CustomerItemDialog({ item, open, onOpenChange }: Props) {
+export function CustomerItemDialog({ item, open, onOpenChange, onAddToCart }: Props) {
   const [selectedVariant, setSelectedVariant] = useState<CustomerMenuItemVariant | null>(null);
   const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState(false);
@@ -34,10 +40,19 @@ export function CustomerItemDialog({ item, open, onOpenChange }: Props) {
   const availableVariants = item.variants.filter((v) => v.isAvailable);
   const availableAddons = item.addons.filter((a) => a.isAvailable);
 
+  const selectedAddonList = availableAddons
+    .filter((a) => selectedAddons.has(a.id))
+    .map((a) => ({ id: a.id, name: a.name, price: a.price }));
+
   const handleAdd = () => {
+    if (onAddToCart && item) {
+      onAddToCart(item, selectedVariant, selectedAddonList, 1);
+    }
     setAdded(true);
     setTimeout(() => {
       setAdded(false);
+      setSelectedVariant(null);
+      setSelectedAddons(new Set());
       onOpenChange(false);
     }, 600);
   };

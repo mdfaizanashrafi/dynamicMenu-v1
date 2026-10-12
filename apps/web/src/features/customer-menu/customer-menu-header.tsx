@@ -30,6 +30,11 @@ export function CustomerMenuHeader({ restaurant, table, theme }: Props) {
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium opacity-70">{table.label}</p>
           <h1 className="text-2xl font-bold leading-tight">{restaurant.name}</h1>
+          {theme.heroText && (
+            <p className="mt-0.5 text-sm font-semibold" style={{ color: "var(--tm-primary)" }}>
+              {theme.heroText}
+            </p>
+          )}
           {restaurant.description && (
             <p className="mt-1 line-clamp-2 text-sm opacity-80">
               {restaurant.description}

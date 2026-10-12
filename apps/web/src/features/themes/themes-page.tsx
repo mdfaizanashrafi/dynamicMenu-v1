@@ -87,7 +87,11 @@ export function ThemesPage() {
         ]);
         if (!cancelled) {
           setState(themeState);
-          setDraft(themeState.draft);
+          setDraft({
+            ...themeState.draft,
+            layoutStyle: themeState.draft.layoutStyle ?? "list",
+            heroText: themeState.draft.heroText ?? null,
+          });
           setPreviewData(preview);
         }
       } catch (e: unknown) {
@@ -410,6 +414,36 @@ export function ThemesPage() {
                       </option>
                     ))}
                   </select>
+                </label>
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-text-primary">
+                  Menu layout
+                  <select
+                    value={draft.layoutStyle}
+                    onChange={(e) =>
+                      patchDraft({
+                        layoutStyle: e.target.value as ThemeConfig["layoutStyle"],
+                      })
+                    }
+                    className={selectClass}
+                  >
+                    <option value="list">List (single column)</option>
+                    <option value="grid">Grid (two columns)</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-text-primary">
+                  Hero text (optional)
+                  <input
+                    value={draft.heroText ?? ""}
+                    onChange={(e) =>
+                      patchDraft({ heroText: e.target.value.trim() || null })
+                    }
+                    placeholder="e.g. Happy Diwali!"
+                    maxLength={80}
+                    className="mt-1 h-11 w-full rounded-lg border border-border-default bg-transparent px-3 text-sm outline-none focus:border-brand-primary"
+                  />
                 </label>
               </div>
 
