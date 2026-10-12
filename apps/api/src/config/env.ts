@@ -1,3 +1,6 @@
+// Load apps/api/.env before validating (Prisma loads its own DATABASE_URL;
+// app-level vars like CLERK_SECRET_KEY need explicit loading).
+import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
