@@ -1144,6 +1144,7 @@ ARCHITECTURE.md
 DESIGN.md
 PHASES.md
 MEMORY.md
+LIVE.md      # production deployment guide (Neon/Clerk/Sentry/Render/Vercel/DNS, written 2026-10-13)
 ```
 
 Potential future documentation:
